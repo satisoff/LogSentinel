@@ -1,0 +1,14 @@
+#cloud-config
+# LogSentinel collection VM: Ubuntu 22.04/24.04, x86_64 or arm64 (Oracle Ampere A1, GCP, AWS, ...).
+# Paste into the provider's "cloud-init" / "user data" / "startup script" field when creating the VM.
+# Installs Docker Engine + compose plugin and uv. The code is pushed later with infra/push.sh.
+package_update: true
+packages: [git, curl, tmux, htop, jq]
+timezone: Etc/UTC
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu || true
+  - sudo -u ubuntu -H bash -lc 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+  - sudo -u ubuntu -H mkdir -p /home/ubuntu/LogSentinel
+  - touch /var/lib/cloud/instance/logsentinel-ready

@@ -22,7 +22,6 @@ from orchestrator.scenarios import EpisodePlan
 
 log = logging.getLogger("orchestrator")
 RAW_DIR = tb.ROOT / "data" / "raw"
-LIVE_LOGS = RAW_DIR / "_live_logs"
 EXPORT_LAG_S = 30  # wait for the last scrapes to land before exporting
 
 
@@ -117,7 +116,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
     start, end = t0 - plan.pre_min * 60, t0 + plan.horizon_min * 60
     metrics = export_window(tb.PROMETHEUS_URL, start, end)
     metrics.to_parquet(out / "metrics.parquet", index=False)
-    log_counts = slice_logs(LIVE_LOGS, out / "logs", start, end)
+    log_counts = slice_logs(tb.LIVE_LOGS, out / "logs", start, end)
 
     change_event = {  # visible to systems under test
         "change_id": plan.change_id,
@@ -137,6 +136,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
         "faults_applied": fault_record,
         "window": {"start": start, "end": end, "t0": t0},
         "warmup_min": warmup_min,
+        "stack": tb.STACK,
         # data-quality context: other containers competing for the laptop's CPU/RAM
         "host_context": {"before": host_before, "after": host_after},
         "log_lines": log_counts,

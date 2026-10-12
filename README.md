@@ -29,7 +29,7 @@ orchestrator/  change controller, scenario runner, fault injectors
 logsentinel/   core library: collect, episodes, features, expected, detectors, qualify, explain
 experiments/   configs, training/evaluation/ablation scripts, reports
 dashboard/     Streamlit app (episode explorer, decisions, results)
-infra/         optional cloud runner (Terraform, single VM)
+infra/         cloud collection VM: cloud-init, push/collect/pull scripts (see infra/README.md)
 data/          raw telemetry, episodes, frozen splits (gitignored)
 tests/         unit tests
 ```
@@ -63,6 +63,8 @@ $PY -m orchestrator.cli down                   # stop and free RAM (volumes kept
 
 Each run writes `data/raw/<run_id>/`: `change.json` (visible to systems), `scenario.json` (oracle +
 run record), `metrics.parquet`, `logs/<service>.jsonl`. Grafana is optional: `up --grafana` → :3000.
+
+Long collections run better on a cloud VM (free tiers work): see `infra/README.md`.
 
 ## Episodes, decisions and dashboard
 

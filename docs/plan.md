@@ -41,7 +41,7 @@
 | Baselines | z-score/EWMA; IsolationForest; change-aware pre/post test; SCWarn-inspired multimodal; detector + persistence filter; MELODY-inspired (semi-supervised one-class on deployment features, CPU-sized) |
 | Dashboard | Streamlit (episode explorer, telemetry plots, evidence, results). Grafana is an optional Compose profile, started only when needed |
 | Experiments | Plain YAML configs + pydantic validation, CSV/JSON run records (MLflow optional extra), pytest |
-| Cloud (later) | Terraform for one VM (about 8 vCPU / 32 GB) + object storage; same Compose stack |
+| Cloud | One Ubuntu VM (free tier: Oracle Always Free Ampere, or GCP $300 trial) via console + cloud-init; parallel stacks; SSH push/pull (no Terraform) |
 
 ## Project structure
 ```
@@ -52,7 +52,7 @@ LogSentinel/
   logsentinel/     collect/ (Prometheus client, log-file reader), episodes/ (builder, schema), features/, expected/, detectors/ (baselines), qualify/ (rules, model, policy), explain/
   experiments/     configs/, train.py, evaluate.py, ablations.py, reports/
   dashboard/       Streamlit app
-  infra/           terraform/ (provider module chosen in M7)
+  infra/           cloud-init + push/collect/pull scripts for a collection VM
   data/            raw/, episodes/, splits/   (gitignored)
   tests/
 ```
@@ -72,7 +72,11 @@ LogSentinel/
 
 **M6 — Training and evaluation (Phase 5; Outputs 6–8).** Baselines, supervised qualifier, calibration, and action thresholds tuned on validation only. Metrics: false alerts per episode at fixed recall, harmful-regression precision and recall, detection delay, lead time before SLO violation, unnecessary-rollback rate, ECE/Brier, action-weighted utility with cost sensitivity, and leave-one-scenario-out results. Ablations: change context, logs, metrics, fusion, persistence, SLO, adaptive policy. Bootstrap CIs at episode level. Streamlit results page plus exported tables and plots. Negative results are reported as they come out.
 
-**M7 — Cloud runner (optional, when local throughput is too low).** Terraform for one VM in the chosen provider, a bootstrap script that installs Docker and runs the stack, and a sync of episodes to object storage. Same commands as local.
+**M7 — Cloud runner (built 2026-10-12, before M5, after a laptop pilot was stopped by low memory).** A provider-agnostic
+Ubuntu VM (x86_64 or ARM64) is set up with cloud-init. `push.sh` and `pull.sh` move code up and data back over SSH,
+and `collect.sh` runs N isolated stacks in parallel (`LS_STACK`, sharded batch). Terraform was dropped in favour of
+console creation plus cloud-init, so free tiers (Oracle Always Free, GCP $300 trial) need no extra tooling.
+See `infra/README.md`.
 
 **M8 — Refine and document (Phase 6; Outputs 9–10).** Reproducibility guide, limitations, revised contribution claim backed by measured evidence, and a paper-ready methods and results section.
 

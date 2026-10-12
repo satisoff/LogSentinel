@@ -36,7 +36,7 @@ def _setup_logging() -> None:
 def up(grafana: bool = False) -> None:
     """Start the testbed and wait until all services are healthy."""
     _setup_logging()
-    (tb.ROOT / "data" / "raw" / "_live_logs").mkdir(parents=True, exist_ok=True)
+    tb.LIVE_LOGS.mkdir(parents=True, exist_ok=True)
     args = ["--profile", "grafana"] if grafana else []
     result = tb.compose(*args, "up", "-d", "--build", check=False)
     if result.returncode != 0:
@@ -108,24 +108,31 @@ def batch(
     pre_min: float | None = None,
     horizon_min: float | None = None,
     warmup_min: float = 3.0,
+    shard: int = typer.Option(0, help="This worker's shard index (0-based)"),
+    shards: int = typer.Option(1, help="Total number of shards (parallel stacks)"),
 ) -> None:
-    """Run episodes for each scenario x seed. Failures are logged and skipped."""
+    """Run episodes for each scenario x seed. Failures are logged and skipped.
+
+    With --shards N, the scenario x seed job list is split round-robin and this process runs
+    only the jobs with index % N == shard (one shard per parallel stack, LS_STACK=shard).
+    """
     from orchestrator.runner import run_episode
 
     _setup_logging()
     log = logging.getLogger("orchestrator")
-    for sid in scenario_ids:
-        spec = load_spec(sid)
-        for seed in _parse_seeds(seeds):
-            p = resolve(spec, seed)
-            if pre_min is not None:
-                p.pre_min = pre_min
-            if horizon_min is not None:
-                p.horizon_min = horizon_min
-            try:
-                run_episode(p, warmup_min=warmup_min)
-            except Exception:  # noqa: BLE001 - keep the batch going; the failure is logged
-                log.exception("episode %s seed %d failed", sid, seed)
+    jobs = [(sid, seed) for sid in scenario_ids for seed in _parse_seeds(seeds)]
+    mine = [job for i, job in enumerate(jobs) if i % shards == shard]
+    log.info("stack %s: %d of %d jobs", tb.PROJECT, len(mine), len(jobs))
+    for sid, seed in mine:
+        p = resolve(load_spec(sid), seed)
+        if pre_min is not None:
+            p.pre_min = pre_min
+        if horizon_min is not None:
+            p.horizon_min = horizon_min
+        try:
+            run_episode(p, warmup_min=warmup_min)
+        except Exception:  # noqa: BLE001 - keep the batch going; the failure is logged
+            log.exception("episode %s seed %d failed", sid, seed)
     tb.set_load(**{**tb.get_load(), "running": False})
 
 

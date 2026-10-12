@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -11,16 +12,37 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILE = ROOT / "testbed" / "docker-compose.yml"
+
+# Several isolated stacks can run on one machine (cloud VM). Stack k uses host ports +100*k,
+# its own compose project and its own live-log directory. Stack 0 keeps the original layout.
+STACK = int(os.environ.get("LS_STACK", "0"))
+PROJECT = "logsentinel" if STACK == 0 else f"logsentinel-s{STACK}"
+_OFF = 100 * STACK
+PORTS = {
+    "gateway": 8080 + _OFF,
+    "orders": 8081 + _OFF,
+    "inventory": 8082 + _OFF,
+    "loadgen": 8089 + _OFF,
+    "prometheus": 9090 + _OFF,
+    "toxiproxy": 8474 + _OFF,
+    "grafana": 3000 + _OFF,
+}
+LIVE_LOGS = ROOT / "data" / "raw" / ("_live_logs" if STACK == 0 else f"_live_logs_s{STACK}")
 SERVICE_URLS = {
-    "gateway": "http://127.0.0.1:8080",
-    "orders": "http://127.0.0.1:8081",
-    "inventory": "http://127.0.0.1:8082",
-    "loadgen": "http://127.0.0.1:8089",
+    svc: f"http://127.0.0.1:{PORTS[svc]}" for svc in ("gateway", "orders", "inventory", "loadgen")
 }
 APP_SERVICES = ("gateway", "orders", "inventory")
-PROMETHEUS_URL = "http://127.0.0.1:9090"
-TOXIPROXY_URL = "http://127.0.0.1:8474"
+COMPOSE_SERVICES = {"postgres", "toxiproxy", "prometheus", "grafana", "loadgen", *APP_SERVICES}
+PROMETHEUS_URL = f"http://127.0.0.1:{PORTS['prometheus']}"
+TOXIPROXY_URL = f"http://127.0.0.1:{PORTS['toxiproxy']}"
 TIMEOUT = 5
+
+
+def compose_env() -> dict[str, str]:
+    env = dict(os.environ)
+    env.update({f"LS_PORT_{svc.upper()}": str(port) for svc, port in PORTS.items()})
+    env["LS_LIVE_LOGS"] = str(LIVE_LOGS)
+    return env
 
 
 class TestbedError(RuntimeError):
@@ -28,9 +50,15 @@ class TestbedError(RuntimeError):
 
 
 def compose(*args: str, check: bool = True) -> subprocess.CompletedProcess:
-    cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), *args]
+    cmd = ["docker", "compose", "-p", PROJECT, "-f", str(COMPOSE_FILE), *args]
     return subprocess.run(
-        cmd, check=check, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        cmd,
+        check=check,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=compose_env(),
     )
 
 
@@ -101,10 +129,16 @@ def host_context() -> list[dict[str, str]]:
         return [{"error": "docker stats unavailable"}]
     rows = [line.split("	") for line in out.splitlines() if line.strip()]
     return [
-        {"name": r[0], "cpu": r[1], "mem": r[2]}
-        for r in rows
-        if len(r) == 3 and not r[0].startswith("logsentinel-")
+        {"name": r[0], "cpu": r[1], "mem": r[2]} for r in rows if len(r) == 3 and not _own(r[0])
     ]
+
+
+def _own(container: str) -> bool:
+    """True for this stack's containers (<project>-<service>-<n>); other stacks count as noise."""
+    prefix = f"{PROJECT}-"
+    return (
+        container.startswith(prefix) and container[len(prefix) :].split("-")[0] in COMPOSE_SERVICES
+    )
 
 
 # --- Faults ----------------------------------------------------------------------------------

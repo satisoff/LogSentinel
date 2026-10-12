@@ -6,13 +6,15 @@
 # keep the laptop plugged in with the lid open.
 set -u
 cd "$(dirname "$0")/.." || exit 1
-PY=.venv/Scripts/python.exe
+PY=.venv/Scripts/python.exe; [ -x "$PY" ] || PY=.venv/bin/python
 SEEDS="${SEEDS:-0}"
 SCENARIOS="${SCENARIOS:-S1 S2 S3 S4 S5 S6 S7 S8 S9}"
 MARKER="data/.pilot.running"
 touch "$MARKER"
 trap 'rm -f "$MARKER"' EXIT
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/keepawake.ps1 -Marker "$MARKER" &
+if command -v powershell >/dev/null 2>&1; then  # Windows laptop: prevent sleep
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/keepawake.ps1 -Marker "$MARKER" &
+fi
 echo "== pilot start $(date -u +%FT%TZ)  scenarios: $SCENARIOS  seeds: $SEEDS"
 $PY -m orchestrator.cli up || exit 1
 # shellcheck disable=SC2086
