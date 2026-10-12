@@ -11,10 +11,14 @@ data/
     requests.parquet            per-request client-side records from the load generator
     logs/<service>.jsonl        structured service logs
   episodes/
-    episodes.jsonl              manifest: one line per episode (schema §4)
-    <episode_id>/series.parquet aligned 15 s wide table (pre + post)
-    <episode_id>/logs.parquet   parsed logs with Drain3 template ids
-    <episode_id>/label.json     label, secondary attributes, evidence record
+    episodes.jsonl              manifest: one line per episode (schema §4), rebuilt from meta.json files
+    <episode_id>/series.parquet aligned 15 s wide table (pre + post); columns <metric>__<service>,
+                                client SLI columns, and service-agnostic aggregates for the labeler
+    <episode_id>/logs.parquet   parsed logs; Drain3 template per line, mined online per service;
+                                new_template = first seen after t0 within the episode
+    <episode_id>/change.json    change event (visible fields only are exposed by store.load_view)
+    <episode_id>/label.json     label, secondary attributes, evidence record (evaluator only)
+    <episode_id>/meta.json      manifest row: identifiers, label summary, quality flags and details
   splits/<split_name>.json      frozen episode-id lists + hash of episodes.jsonl
 ```
 
@@ -57,9 +61,15 @@ impact_onset, slo_violation_time, data_quality_flags[]`
 
 ## 5. Data-quality checks (episode rejected or flagged)
 
+Implemented in `logsentinel/episodes/builder.py`; thresholds in `experiments/configs/episodes.yaml`.
+**Rejecting** flags: `missing_data`, `gap_near_t0`, `load_unstable`, `baseline_contaminated`,
+`change_not_applied`. **Informational** flags: `restarts` (expected in S6), `host_noise`,
+`nonstandard_windows` (smoke/pilot runs). Original checklist:
+
 - Missing scrape steps > 5% in any window, or any gap > 1 min around t0.
 - Load generator deviating from its target rate by > 10% in `W_pre` (the baseline is unstable).
-- Clock skew between the load generator and the services > 1 s, checked with a heartbeat log line.
+- Clock skew: not checked separately. All telemetry and t0 are stamped on the same Docker VM clock
+  (t0 is read from Prometheus `time()`), so there is no cross-host skew by construction.
 - Baseline contamination: severe/material impact already present in `W_pre`.
 - Scenario failed to apply (change controller error, container not healthy).
 

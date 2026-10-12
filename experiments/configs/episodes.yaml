@@ -1,0 +1,23 @@
+# Episode builder / data-quality parameters. Spec: docs/spec/dataset.md sections 4-5.
+version: v0-draft
+step_s: 15
+standard_windows: {pre_min: 30, horizon_min: [30, 45]}   # other windows -> flag nonstandard_windows
+
+quality:
+  max_missing_frac: 0.05     # missing SLI steps in any window
+  max_gap_near_t0_s: 60      # longest gap within +-5 min of t0
+  load_tolerance: 0.10       # mean observed vs target request rate in W_pre
+  workload_change_tolerance: 0.15
+
+# flags that reject an episode (it stays in the manifest, with status=rejected)
+reject_flags: [missing_data, gap_near_t0, load_unstable, baseline_contaminated, change_not_applied]
+
+app_services: [gateway, orders, inventory]
+
+drain3:
+  sim_th: 0.4
+  depth: 4
+  masks:   # applied in order
+    - {pattern: '\d+\.\d+\.\d+(?:\+[\w.]+)?', name: VER}
+    - {pattern: '\d+\.\d+', name: NUM}
+    - {pattern: '\d{4,}', name: NUM}
