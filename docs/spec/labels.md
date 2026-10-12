@@ -87,6 +87,7 @@ intended effect (workload changes are declared as intended effects of the worklo
 |---|---|---|
 | 1 | **CR** | Any step in H is **severe**, sustained ≥ `D_crit` = 2 min. |
 | 2 | **AR** | Not CR, and **material** impact that (a) totals ≥ `P_mat` = 10 min in H, OR (b) occurs in ≥ `K_rec` = 3 separate intervals totalling ≥ 5 min, OR (c) is still present in the final 5 min of H and longer than 3 min (worsening/unrecovered). |
+| 2d | **AR** | Not CR/AR(a–c), material impact occurred, **and** an unexplained deviation (§4) is still present in the final `tail_min` of H: the cause persists (pilot 2: a leak OOM-crashed the service and kept growing after the restart). |
 | 3 | **TA** | Not CR/AR, and either (i) there is some material impact, which is short-lived because rules 1–2 did not fire, or (ii) there is an unexpected deviation (§4) that has recovered: no deviant steps in the final `R` = 10 min of H. |
 | 4 | **BA** | Everything else: no deviation; deviations covered by declared intended effects; or unexpected deviations that persist without material impact (`explained=false`). |
 
@@ -131,3 +132,4 @@ label, and a sensitivity run uses the automatic label.
 ## Changelog
 - v0 (2026-10-12): initial draft. TA rule split into short-lived material impact vs. recovered unexpected deviation; horizon-truncation ambiguity added. Multi-window impact states: a short 1-min window for material time and severe persistence (the earlier trailing-only windows made a 15 s outage count as 2 min severe); raw-step impact onset. Deviation oracle made one-sided (higher-is-worse).
 - v0 (2026-10-12, after pilot 1): L_slo 300 → 50 ms; absolute minimum deviations per metric family.
+- v0 (2026-10-12, after pilot 2): rule 2d (material impact with an unresolved unexplained deviation → AR).

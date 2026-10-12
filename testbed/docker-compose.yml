@@ -1,4 +1,6 @@
 # LogSentinel testbed. RAM-first: every container has a memory cap; the total limit is about 1.1 GB.
+# Swap is disabled per container (pilot 2: on CI runners with swap, the S6 leak swapped for 15+ min
+# past its limit before the OOM kill, adding latency noise unrelated to the scenario).
 #   docker compose -f testbed/docker-compose.yml up -d --build
 #   docker compose -f testbed/docker-compose.yml --profile grafana up -d   (optional UI, +128 MB)
 # Ports and the live-log directory are parameterised (LS_PORT_*, LS_LIVE_LOGS) so several stacks can
@@ -38,6 +40,7 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - pgdata:/var/lib/postgresql/data
     mem_limit: 192m
+    memswap_limit: 192m  # no swap: at the limit the kernel OOM-kills instead of swapping
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app -d app"]
       interval: 5s
@@ -53,6 +56,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
     mem_limit: 32m
+    memswap_limit: 32m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
   gateway:
     <<: *app
@@ -60,18 +64,21 @@ services:
     ports: ["127.0.0.1:${LS_PORT_GATEWAY:-8080}:8000"]
     depends_on: [orders, inventory]
     mem_limit: 128m
+    memswap_limit: 128m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
   orders:
     <<: *app
     environment: { <<: *app-env, SERVICE: orders }
     ports: ["127.0.0.1:${LS_PORT_ORDERS:-8081}:8000"]
     mem_limit: 128m
+    memswap_limit: 128m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
   inventory:
     <<: *app
     environment: { <<: *app-env, SERVICE: inventory }
     ports: ["127.0.0.1:${LS_PORT_INVENTORY:-8082}:8000"]
     mem_limit: 192m  # the leak scenario (S6) runs into this limit -> OOM kill -> restart
+    memswap_limit: 192m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
   loadgen:
     <<: *app
@@ -79,6 +86,7 @@ services:
     ports: ["127.0.0.1:${LS_PORT_LOADGEN:-8089}:8000"]
     depends_on: [gateway]
     mem_limit: 128m
+    memswap_limit: 128m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
   prometheus:
     image: prom/prometheus:v2.54.1
@@ -92,6 +100,7 @@ services:
       - promdata:/prometheus
     ports: ["127.0.0.1:${LS_PORT_PROMETHEUS:-9090}:9090"]
     mem_limit: 256m
+    memswap_limit: 256m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
   grafana:
     image: grafana/grafana-oss:11.2.0
@@ -104,6 +113,7 @@ services:
       - ./observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/ds.yml:ro
     ports: ["127.0.0.1:${LS_PORT_GRAFANA:-3000}:3000"]
     mem_limit: 128m
+    memswap_limit: 128m  # no swap: at the limit the kernel OOM-kills instead of swapping
 
 volumes:
   pgdata:

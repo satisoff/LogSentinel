@@ -205,6 +205,10 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
         label, rule = "AR", "material_recurrent"
     elif (material & tail).any() and material_min > r.tail_total_min:
         label, rule = "AR", "material_unrecovered"
+    elif material.any() and (unexplained & tail).any():
+        # Impact happened and its cause is still visibly present (e.g. a leak that crashed the
+        # service and keeps growing after the restart): it persists, so it is not transient.
+        label, rule = "AR", "material_with_unresolved_deviation"
     elif material.any():
         label, rule = "TA", "material_short_lived"
     elif unexplained.any() and not (unexplained & recovery).any():

@@ -142,3 +142,24 @@ def test_tiny_absolute_cpu_wiggle_is_not_a_deviation():
     df.loc[window(df, 2, 5), "svc_cpu"] = 0.07  # +40% relative, but only +0.02 cores
     res = label_episode(df, Oracle(), CFG)
     assert res.explained and res.label == "BA"
+
+
+def _crash_then(df, tail_rss):
+    """Short material burst at 20-21 min (crash), with RSS behaviour afterwards given by tail_rss."""
+    df["svc_rss_mb"] = 60.0
+    df.loc[window(df, 0, 20), "svc_rss_mb"] = 60 + 7 * df.loc[window(df, 0, 20), "t"] / 60  # leak
+    df.loc[window(df, 20, 21), "bad"] = REQ // 4  # OOM restart burst
+    df.loc[window(df, 21, 30), "svc_rss_mb"] = tail_rss(df.loc[window(df, 21, 30), "t"])
+    return df
+
+
+def test_crash_with_cause_still_growing_is_ar():
+    df = _crash_then(make_series(), lambda t: 60 + 7 * (t - 21 * 60) / 60)  # leaks again
+    res = label_episode(df, Oracle(), CFG)
+    assert (res.label, res.rule) == ("AR", "material_with_unresolved_deviation")
+
+
+def test_crash_with_clean_recovery_is_ta():
+    df = _crash_then(make_series(), lambda t: 60.0 + 0 * t)  # back to baseline
+    res = label_episode(df, Oracle(), CFG)
+    assert (res.label, res.rule) == ("TA", "material_short_lived")
