@@ -46,6 +46,24 @@ py -m uv pip install --python .venv/Scripts/python.exe -e ".[dev,dashboard]"
 .venv/Scripts/python.exe -m pytest
 ```
 
+## Testbed quick start
+
+Docker is needed only while collecting data. Stop other Docker stacks first: they compete for RAM
+and CPU and add noise to measurements.
+
+```bash
+PY=.venv/Scripts/python.exe
+$PY -m orchestrator.cli up                     # build + start (~350 MB in use, 1.1 GB cap)
+$PY -m orchestrator.cli scenarios              # list S1-S9
+$PY -m orchestrator.cli plan S5 --seed 3       # resolved plan, without running it
+$PY -m orchestrator.cli run S9 --seed 0 --pre-min 3 --horizon-min 5 --warmup-min 2   # ~11 min smoke run
+$PY -m orchestrator.cli run S5 --seed 3        # full episode (~65 min)
+$PY -m orchestrator.cli down                   # stop and free RAM (volumes kept)
+```
+
+Each run writes `data/raw/<run_id>/`: `change.json` (visible to systems), `scenario.json` (oracle +
+run record), `metrics.parquet`, `logs/<service>.jsonl`. Grafana is optional: `up --grafana` → :3000.
+
 ## Milestones
 
 See `docs/plan.md`. Summary: M0 bootstrap → M1 specification → M2 testbed → M3 episode builder →

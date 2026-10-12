@@ -29,7 +29,9 @@ class TestbedError(RuntimeError):
 
 def compose(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     cmd = ["docker", "compose", "-f", str(COMPOSE_FILE), *args]
-    return subprocess.run(cmd, check=check, capture_output=True, text=True)
+    return subprocess.run(
+        cmd, check=check, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
 
 
 def _post(url: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -80,6 +82,29 @@ def set_load(**cfg: Any) -> dict[str, Any]:
 
 def get_load() -> dict[str, Any]:
     return requests.get(f"{SERVICE_URLS['loadgen']}/admin/load", timeout=TIMEOUT).json()
+
+
+def host_context() -> list[dict[str, str]]:
+    """Snapshot of containers running outside the testbed (a source of CPU/RAM noise)."""
+    cmd = [
+        "docker",
+        "stats",
+        "--no-stream",
+        "--format",
+        "{{.Name}}	{{.CPUPerc}}	{{.MemUsage}}",
+    ]
+    try:
+        out = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return [{"error": "docker stats unavailable"}]
+    rows = [line.split("	") for line in out.splitlines() if line.strip()]
+    return [
+        {"name": r[0], "cpu": r[1], "mem": r[2]}
+        for r in rows
+        if len(r) == 3 and not r[0].startswith("logsentinel-")
+    ]
 
 
 # --- Faults ----------------------------------------------------------------------------------

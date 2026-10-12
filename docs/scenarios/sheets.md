@@ -83,3 +83,14 @@ workload) of a variant share its `change_id` and are always placed in the same s
 60/20/20 grouped split leaves about 7 change identities in test. Statistical claims must account for this
 clustering (cluster bootstrap over `change_id`; see evaluation.md). If pilots show this is too coarse,
 more change variants are added before data collection, not after.
+
+### Testbed design decisions (with evidence)
+- **Postgres durability off** (`fsync`, `synchronous_commit` and `full_page_writes` off; checkpoints every 30 min).
+  In the first smoke run (2026-10-12, S9 seed 0), a routine checkpoint coincided with DB p95 latency up to 1.5 s
+  and client p95 up to 4.1 s, while the services were idle. On this laptop, flushes to the WSL virtual disk stall
+  under memory pressure. That is periodic noise unrelated to any scenario, so it is removed. Limitation: the testbed
+  does not model storage-induced latency.
+- **Zero-downtime deploys are simulated in-process** (behaviour-profile swap), not by restarting containers.
+  Limitation: no cold-start effects. OOM restarts (S6) are real container restarts.
+- **Host contention:** other workloads on the laptop (e.g. other Docker stacks) add CPU noise. During data
+  collection, other stacks should be stopped and their presence logged in the run record.

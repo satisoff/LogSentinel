@@ -93,6 +93,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
 
     tb.wait_healthy()
     tb.reset_all()
+    host_before = tb.host_context()
     w = plan.workload
     tb.set_load(rps=w["rps"], profile=w["profile"], seed=plan.seed, ramp_s=0, running=True)
     _sleep(warmup_min * 60, "warm-up")
@@ -112,6 +113,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
         for svc in tb.APP_SERVICES:
             tb.compose("unpause", svc, check=False)
 
+    host_after = tb.host_context()
     start, end = t0 - plan.pre_min * 60, t0 + plan.horizon_min * 60
     metrics = export_window(tb.PROMETHEUS_URL, start, end)
     metrics.to_parquet(out / "metrics.parquet", index=False)
@@ -135,6 +137,8 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
         "faults_applied": fault_record,
         "window": {"start": start, "end": end, "t0": t0},
         "warmup_min": warmup_min,
+        # data-quality context: other containers competing for the laptop's CPU/RAM
+        "host_context": {"before": host_before, "after": host_after},
         "log_lines": log_counts,
         "metric_rows": len(metrics),
     }
