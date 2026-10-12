@@ -19,3 +19,7 @@ experiments/reports/*
 infra/terraform/**/.terraform/
 *.tfstate*
 .env
+
+# local run markers / logs
+data/.pilot.running
+data/*.log
