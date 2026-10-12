@@ -54,3 +54,4 @@ known-first-party = ["logsentinel", "orchestrator", "common", "db"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]  # long literal metric strings in assertions
+"dashboard/*" = ["E501"]  # long UI strings / plotly kwargs

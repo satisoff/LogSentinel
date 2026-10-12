@@ -73,9 +73,10 @@ The oracle check is run for each key metric `m`: gateway p95 latency, 5xx rate, 
 memory, DB latency, retry and timeout counts. A step is **deviant** when:
 
 ```
-|m(t) − median_pre(m)| > max(k_mad · MAD_pre(m), r_min · |median_pre(m)|)
+m(t) − median_pre(m) > max(k_mad · MAD_pre(m), r_min · |median_pre(m)|)
 ```
-with k_mad = 4 and r_min = 0.20 ⟨pilot⟩, sustained ≥ 1 min, and **not covered** by a declared
+The check is one-sided: every oracle metric is higher-is-worse, so an improvement is not a
+regression. k_mad = 4 and r_min = 0.20 ⟨pilot⟩; the deviation must be sustained ≥ 1 min, and **not covered** by a declared
 intended effect (workload changes are declared as intended effects of the workload change).
 
 ## 5. Label rules (applied in order; the first match wins)
@@ -126,4 +127,4 @@ label, and a sensitivity run uses the automatic label.
   and B_mat is required (see `evaluation.md`).
 
 ## Changelog
-- v0 (2026-10-12): initial draft. TA rule split into short-lived material impact vs. recovered unexpected deviation; horizon-truncation ambiguity added. Multi-window impact states: a short 1-min window for material time and severe persistence (the earlier trailing-only windows made a 15 s outage count as 2 min severe); raw-step impact onset.
+- v0 (2026-10-12): initial draft. TA rule split into short-lived material impact vs. recovered unexpected deviation; horizon-truncation ambiguity added. Multi-window impact states: a short 1-min window for material time and severe persistence (the earlier trailing-only windows made a 15 s outage count as 2 min severe); raw-step impact onset. Deviation oracle made one-sided (higher-is-worse).

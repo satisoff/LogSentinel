@@ -22,6 +22,8 @@ import pandas as pd
 import yaml
 from pydantic import BaseModel
 
+from logsentinel.ts import merge_runs, runs, sustained, trailing_ratio
+
 LABELS = ("BA", "TA", "AR", "CR")
 
 
@@ -112,39 +114,6 @@ class LabelResult:
         return asdict(self)
 
 
-def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
-    """Return [start, end) index pairs of consecutive True values."""
-    if not mask.any():
-        return []
-    padded = np.concatenate([[False], mask, [False]])
-    edges = np.flatnonzero(np.diff(padded.astype(np.int8)))
-    return list(zip(edges[0::2], edges[1::2], strict=True))
-
-
-def _merge(runs: list[tuple[int, int]], max_gap: int) -> list[tuple[int, int]]:
-    merged: list[tuple[int, int]] = []
-    for start, end in runs:
-        if merged and start - merged[-1][1] < max_gap:
-            merged[-1] = (merged[-1][0], end)
-        else:
-            merged.append((start, end))
-    return merged
-
-
-def _sustained(mask: np.ndarray, min_len: int) -> np.ndarray:
-    out = np.zeros_like(mask, dtype=bool)
-    for start, end in _runs(mask):
-        if end - start >= min_len:
-            out[start:end] = True
-    return out
-
-
-def _trailing_ratio(num: pd.Series, den: pd.Series, window: int) -> np.ndarray:
-    n = num.rolling(window, min_periods=1).sum()
-    d = den.rolling(window, min_periods=1).sum()
-    return (n / d.replace(0, np.nan)).to_numpy()
-
-
 def _near(value: float, threshold: float, margin: float) -> bool:
     return threshold != 0 and abs(value - threshold) <= margin * abs(threshold)
 
@@ -163,10 +132,10 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
     # window requires the impact to still be happening, so a brief spike is not smeared over the
     # long window.
     short = cfg.steps(cfg.impact.short_window_min)
-    burn = _trailing_ratio(df["bad"], df["requests"], cfg.steps(cfg.impact.burn_window_min)) / beta
-    err = _trailing_ratio(df["errors_5xx"], df["requests"], cfg.steps(cfg.impact.err_window_min))
-    burn_s = _trailing_ratio(df["bad"], df["requests"], short) / beta
-    err_s = _trailing_ratio(df["errors_5xx"], df["requests"], short)
+    burn = trailing_ratio(df["bad"], df["requests"], cfg.steps(cfg.impact.burn_window_min)) / beta
+    err = trailing_ratio(df["errors_5xx"], df["requests"], cfg.steps(cfg.impact.err_window_min))
+    burn_s = trailing_ratio(df["bad"], df["requests"], short) / beta
+    err_s = trailing_ratio(df["errors_5xx"], df["requests"], short)
     frac_pre = df.loc[pre, "bad"].sum() / max(df.loc[pre, "requests"].sum(), 1)
     burn_pre = frac_pre / beta
     excess = burn_s - burn_pre
@@ -177,11 +146,11 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
     short_hot = (np.nan_to_num(burn_s) >= cfg.impact.b_crit) | (
         np.nan_to_num(err_s) >= cfg.impact.e_crit
     )
-    severe = _sustained(horizon & long_hot & short_hot, cfg.steps(cfg.impact.d_crit_min))
+    severe = sustained(horizon & long_hot & short_hot, cfg.steps(cfg.impact.d_crit_min))
     material = horizon & (np.nan_to_num(excess) >= cfg.impact.b_mat)
     h_idx = np.flatnonzero(horizon)
     h0, h1 = h_idx[0], h_idx[-1] + 1
-    intervals = _merge(_runs(material[h0:h1]), cfg.steps(cfg.impact.merge_gap_min))
+    intervals = merge_runs(runs(material[h0:h1]), cfg.steps(cfg.impact.merge_gap_min))
     material_steps = int(material.sum())
     material_min = material_steps * step / 60
 
@@ -195,10 +164,13 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
             continue
         values = df[metric].to_numpy(dtype=float)
         base = values[pre]
+        if not np.isfinite(base).any():
+            continue
         med = float(np.nanmedian(base))
         mad = float(np.nanmedian(np.abs(base - med)))
         thr = max(dev.k_mad * mad, dev.r_min * abs(med))
-        raw_dev = horizon & (np.abs(values - med) > thr)
+        # one-sided: all oracle metrics are higher-is-worse (an improvement is not a regression)
+        raw_dev = horizon & (values - med > thr)
         effect = oracle.intended_effects.get(metric)
         if isinstance(effect, dict):
             covered = np.abs(values - med) <= max(thr, effect["max_rel"] * abs(med))
@@ -208,7 +180,7 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
             covered = np.abs(values - center) <= tol
         else:
             covered = np.zeros(len(df), dtype=bool)
-        deviant = _sustained(raw_dev & ~covered, cfg.steps(dev.min_sustain_min))
+        deviant = sustained(raw_dev & ~covered, cfg.steps(dev.min_sustain_min))
         unexplained |= deviant
         explained_dev |= raw_dev & covered
         per_metric[metric] = {
@@ -250,7 +222,7 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
         lookback = np.arange(max(h0, first - short + 1), first + 1)
         raw_hits = lookback[np.nan_to_num(step_excess.to_numpy()[lookback]) >= cfg.impact.b_mat]
         impact_onset = float(df["t"].iloc[raw_hits[0] if raw_hits.size else first])
-    burn_1h = _trailing_ratio(df["bad"], df["requests"], cfg.steps(60)) / beta
+    burn_1h = trailing_ratio(df["bad"], df["requests"], cfg.steps(60)) / beta
     slo_steps = np.flatnonzero(horizon & (np.nan_to_num(burn_1h) >= 1.0))
     slo_violation = float(df["t"].iloc[slo_steps[0]]) if slo_steps.size else None
 

@@ -64,6 +64,21 @@ $PY -m orchestrator.cli down                   # stop and free RAM (volumes kept
 Each run writes `data/raw/<run_id>/`: `change.json` (visible to systems), `scenario.json` (oracle +
 run record), `metrics.parquet`, `logs/<service>.jsonl`. Grafana is optional: `up --grafana` → :3000.
 
+## Episodes, decisions and dashboard
+
+```bash
+PY=.venv/Scripts/python.exe
+$PY -m logsentinel.episodes.cli build           # raw runs -> episodes (+ labels, quality flags)
+$PY -m logsentinel.episodes.cli summary         # scenario x label table, rejected episodes
+$PY -c "from logsentinel.pipeline import decide_online as d; [print(x.cutoff_s/60, x.label, x.action, x.summary) for x in d('<episode_id>')]"
+$PY -m streamlit run dashboard/app.py           # http://localhost:8501 (Docker not needed)
+```
+
+The decision pipeline is: expected-behaviour bands (per-episode workload model, conformal intervals,
+optional change-conditioned shift prior) -> decision-time features (`chg_`, `dev_`, `per_`, `imp_`,
+`log_`, `wl_` groups) -> rule-based qualifier -> cost-based action -> evidence summary. Configuration
+lives in `experiments/configs/policy.yaml`. Nothing is tuned or frozen yet.
+
 ## Milestones
 
 See `docs/plan.md`. Summary: M0 bootstrap → M1 specification → M2 testbed → M3 episode builder →
