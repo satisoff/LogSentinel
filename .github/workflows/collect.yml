@@ -1,0 +1,85 @@
+# Collect LogSentinel change episodes on GitHub-hosted runners (no VM, no card).
+# Start: Actions tab -> "collect-episodes" -> Run workflow, or
+#   gh workflow run collect.yml -f scenarios="S1 S2 S3 S4 S5 S6 S7 S8 S9" -f seeds=0 -f shards=9
+# Each shard is one runner with one isolated testbed stack; it runs the jobs with index % shards == shard.
+# Jobs are capped at 6 h by GitHub: keep <= 4 episodes per shard (~65-80 min each).
+# Download + build locally: bash infra/pull_actions.sh <run-id>
+name: collect-episodes
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: "Scenario ids (space separated)"
+        default: "S1 S2 S3 S4 S5 S6 S7 S8 S9"
+      seeds:
+        description: "Seeds, e.g. 0 or 0-3 or 0,2,5"
+        default: "0"
+      shards:
+        description: "Parallel runners (max 20 concurrent on GitHub Free)"
+        default: "9"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          [[ "$SHARDS" =~ ^[0-9]+$ ]] && (( SHARDS >= 1 && SHARDS <= 64 )) || { echo "bad shards: $SHARDS"; exit 1; }
+          echo "matrix=$(python3 -c "import json,sys; print(json.dumps(list(range(int(sys.argv[1])))))" "$SHARDS")" >> "$GITHUB_OUTPUT"
+
+  collect:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      SCENARIOS: ${{ inputs.scenarios }}
+      SEEDS: ${{ inputs.seeds }}
+      SHARDS: ${{ inputs.shards }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: |
+          uv python install 3.12
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -e ".[testbed]"
+      - name: Record runner hardware (shared CI machines vary; reported with the data)
+        run: |
+          mkdir -p data/raw/_runners
+          {
+            echo "shard=$SHARD runner=$RUNNER_NAME image=$ImageOS-$ImageVersion"
+            echo "nproc=$(nproc)"; free -m; lscpu | grep -E 'Model name|^CPU\(s\)'
+            docker version --format 'docker {{.Server.Version}}'
+          } | tee "data/raw/_runners/shard-$SHARD.txt"
+      - name: Start testbed
+        run: .venv/bin/python -m orchestrator.cli up
+      - name: Collect episodes
+        run: |
+          # shellcheck disable=SC2086
+          .venv/bin/python -m orchestrator.cli batch $SCENARIOS --seeds "$SEEDS" --shard "$SHARD" --shards "$SHARDS"
+      - name: Stop testbed
+        if: always()
+        run: .venv/bin/python -m orchestrator.cli down || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: raw-shard-${{ matrix.shard }}
+          path: |
+            data/raw/run-*
+            data/raw/_runners
+          retention-days: 30
+          if-no-files-found: warn

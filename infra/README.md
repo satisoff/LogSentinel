@@ -13,6 +13,32 @@ stacks run in parallel, raw runs are pulled back, and episodes are built locally
 | `collect.sh` | VM | N parallel stacks share the scenario × seed list; then builds episodes |
 | `pull.sh` | laptop | downloads `data/raw` + logs, builds episodes locally |
 
+## No credit card? Use GitHub Actions (recommended for pilots)
+
+The repo is public on GitHub, so standard GitHub-hosted runners are **free and unlimited** (private repos
+get 2,000 min/month). The workflow `.github/workflows/collect.yml` runs each shard on its own runner, with
+one isolated testbed stack per runner. Up to 20 run in parallel, each capped at 6 h by GitHub, so keep
+**≤ 4 episodes per shard**.
+
+```bash
+gh auth refresh -h github.com -s workflow      # once: allows pushing workflow files
+git push origin main
+gh workflow run collect.yml -f scenarios="S1 S2 S3 S4 S5 S6 S7 S8 S9" -f seeds=0 -f shards=9   # pilot
+gh run watch                                   # or the Actions tab on github.com
+bash infra/pull_actions.sh                     # download artifacts -> data/raw, build episodes
+```
+
+Caveats:
+- **Shared, heterogeneous hardware.** Each shard records its CPU, cores and RAM in
+  `data/raw/_runners/shard-*.txt`. Report this, and check that results do not depend on runner type.
+- **Public artifacts.** Raw runs are uploaded as workflow artifacts (kept 30 days) and are visible to
+  anyone, since the repo is public. They contain synthetic testbed data only.
+- **Fair use.** GitHub's terms allow Actions for building and testing the project itself. Very heavy
+  usage has occasionally been flagged, so collect in sensible batches.
+
+Full dataset example (after thresholds are frozen): 9 scenarios × seeds 0–15 = 144 episodes;
+`-f seeds=0-15 -f shards=40` gives ≤ 4 episodes per shard, and GitHub runs 20 at a time (≈ 2 × 5 h).
+
 ## Which (free) VM?
 
 Free-tier terms checked 2026-10-12. They change often, so confirm on the provider's page.
