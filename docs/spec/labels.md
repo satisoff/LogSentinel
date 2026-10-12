@@ -76,7 +76,7 @@ memory, DB latency, retry and timeout counts. A step is **deviant** when:
 |m(t) − median_pre(m)| > max(k_mad · MAD_pre(m), r_min · |median_pre(m)|)
 ```
 with k_mad = 4 and r_min = 0.20 ⟨pilot⟩, sustained ≥ 1 min, and **not covered** by a declared
-intended effect or workload change (allowing ±50% tolerance on the declared magnitude ⟨pilot⟩).
+intended effect (workload changes are declared as intended effects of the workload change).
 
 ## 5. Label rules (applied in order; the first match wins)
 

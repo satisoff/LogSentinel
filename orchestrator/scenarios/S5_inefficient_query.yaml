@@ -1,0 +1,19 @@
+id: S5
+name: inefficient_query_deploy
+purpose: Deploy introduces a sequential scan / N+1 queries. Sustained, load-dependent degradation -> AR (CR at high load).
+change:
+  change_type: deploy
+  service: orders
+  to_version: "1.2.0"
+  profile: {query_mode: unindexed}
+change_variants:
+  - {to_version: "1.2.0", profile: {query_mode: unindexed}}
+  - {to_version: "1.2.1", profile: {query_mode: unindexed, n_plus_one: 2}}
+  - {to_version: "1.2.2", profile: {query_mode: indexed, n_plus_one: 8}}
+  - {to_version: "1.2.3", profile: {query_mode: unindexed}, rollout_pct: 25}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+oracle:
+  intended_effects: {}
+  change_causal: true

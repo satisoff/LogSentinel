@@ -1,0 +1,30 @@
+id: S7
+name: unrelated_infra_failure
+purpose: Harmless deploy, then an infrastructure failure the deploy did not cause. Needs action; rollback is unnecessary.
+change:
+  change_type: deploy
+  service: orders
+  to_version: "1.1.0"
+  profile: {}
+change_variants:
+  - {service: orders,    to_version: "1.1.0"}
+  - {service: gateway,   to_version: "1.0.1"}
+  - {service: inventory, to_version: "1.0.2"}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+fault_variants:
+  - - type: db_down
+      at_min: {uniform: [5, 10]}
+      duration_min: {uniform: [1.0, 3.0]}
+  - - type: pause
+      at_min: {uniform: [5, 10]}
+      duration_min: {uniform: [1.0, 2.5]}
+      params: {service: inventory}
+  - - type: db_latency
+      at_min: {uniform: [5, 10]}
+      duration_min: {uniform: [8, 15]}
+      params: {latency_ms: {uniform: [250, 600]}, jitter_ms: 50}
+oracle:
+  intended_effects: {}
+  change_causal: false

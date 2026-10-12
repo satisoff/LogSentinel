@@ -91,7 +91,9 @@ class LabelConfig(BaseModel):
 class Oracle:
     """Scenario ground truth; never visible to systems under test."""
 
-    intended_effects: dict[str, float] = field(default_factory=dict)  # metric -> relative shift
+    # metric -> relative shift r (exact, accepted within +-tolerance*|r|),
+    #       or {"max_rel": x} (any deviation up to x*|baseline median| is intended)
+    intended_effects: dict[str, float | dict[str, float]] = field(default_factory=dict)
     change_causal: bool | None = None
 
 
@@ -197,10 +199,12 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
         mad = float(np.nanmedian(np.abs(base - med)))
         thr = max(dev.k_mad * mad, dev.r_min * abs(med))
         raw_dev = horizon & (np.abs(values - med) > thr)
-        shift = oracle.intended_effects.get(metric)
-        if shift is not None:
-            center = med * (1 + shift)
-            tol = max(thr, dev.intended_tolerance * abs(shift * med))
+        effect = oracle.intended_effects.get(metric)
+        if isinstance(effect, dict):
+            covered = np.abs(values - med) <= max(thr, effect["max_rel"] * abs(med))
+        elif effect is not None:
+            center = med * (1 + effect)
+            tol = max(thr, dev.intended_tolerance * abs(effect * med))
             covered = np.abs(values - center) <= tol
         else:
             covered = np.zeros(len(df), dtype=bool)

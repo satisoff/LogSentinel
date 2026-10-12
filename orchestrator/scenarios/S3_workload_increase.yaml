@@ -1,0 +1,22 @@
+id: S3
+name: workload_increase
+purpose: Traffic grows with no software fault. BA if capacity holds; AR/CR if it saturates (measured).
+change:
+  change_type: workload
+  service: null
+  to_version: null
+  load: {rps_factor: 1.5, ramp_s: 0}
+change_variants:
+  - {load: {rps_factor: 1.5, ramp_s: 0}}
+  - {load: {rps_factor: 1.8, ramp_s: 120}}
+  - {load: {rps_factor: 2.2, ramp_s: 120}}
+  - {load: {rps_factor: 2.6, ramp_s: 300}}
+workload_variants:
+  profile: [steady, diurnal]
+  rps: [15, 20]
+oracle:
+  intended_effects:
+    svc_cpu: {max_rel: 2.0}
+    db_latency_p95_ms: {max_rel: 0.5}
+    gw_latency_p95_ms: {max_rel: 0.3}
+  change_causal: false   # rolling back code cannot fix a load increase

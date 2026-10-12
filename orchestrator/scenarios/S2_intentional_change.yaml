@@ -1,0 +1,22 @@
+id: S2
+name: intentional_behaviour_change
+purpose: Deliberate feature that adds work (stock validation) and a new log event. Expected deviation -> BA.
+change:
+  change_type: feature_flag
+  service: inventory
+  to_version: "1.1.0"
+  profile: {extra_cpu_ms: 4, new_log_event: "stock validation passed", new_log_every: 10}
+change_variants:
+  - {to_version: "1.1.0", profile: {extra_cpu_ms: 3}}
+  - {to_version: "1.1.1", profile: {extra_cpu_ms: 5}}
+  - {to_version: "1.1.2", profile: {extra_cpu_ms: 4, extra_sleep_ms: 10}}
+  - {to_version: "1.1.3", profile: {extra_cpu_ms: 4}, rollout_pct: 50}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+oracle:
+  # pilot-calibrate: measured shift per variant, then freeze
+  intended_effects:
+    gw_latency_p95_ms: {max_rel: 0.5}
+    svc_cpu: {max_rel: 1.5}
+  change_causal: true

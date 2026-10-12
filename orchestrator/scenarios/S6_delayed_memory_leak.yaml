@@ -1,0 +1,19 @@
+id: S6
+name: delayed_memory_leak
+purpose: Deploy leaks memory per request; GC pauses grow and the container is OOM-killed later. Delayed onset.
+horizon_min: 45   # extended label horizon for delayed onset (labels.md section 1)
+change:
+  change_type: deploy
+  service: inventory
+  to_version: "1.3.0"
+  profile: {leak_kb_per_req: 12}
+change_variants:
+  - {to_version: "1.3.0", profile: {leak_kb_per_req: 8}}
+  - {to_version: "1.3.1", profile: {leak_kb_per_req: 12}}
+  - {to_version: "1.3.2", profile: {leak_kb_per_req: 18}}
+workload_variants:
+  profile: [steady, diurnal]
+  rps: [15, 20, 25]
+oracle:
+  intended_effects: {}
+  change_causal: true

@@ -44,6 +44,20 @@ def test_declared_latency_shift_is_explained_ba():
     assert (res.label, res.explained) == ("BA", True)
 
 
+def test_declared_upper_bound_effect_is_explained_ba():
+    df = make_series()
+    df.loc[df["t"] >= 0, "gw_latency_p95_ms"] *= 1.30
+    res = label_episode(df, Oracle(intended_effects={"gw_latency_p95_ms": {"max_rel": 0.5}}), CFG)
+    assert (res.label, res.explained) == ("BA", True)
+
+
+def test_deviation_beyond_declared_upper_bound_is_unexplained():
+    df = make_series()
+    df.loc[df["t"] >= 0, "gw_latency_p95_ms"] *= 1.80
+    res = label_episode(df, Oracle(intended_effects={"gw_latency_p95_ms": {"max_rel": 0.5}}), CFG)
+    assert res.explained is False
+
+
 def test_undeclared_persistent_immaterial_shift_is_unexplained_ba():
     df = make_series()
     df.loc[df["t"] >= 0, "gw_latency_p95_ms"] *= 1.30

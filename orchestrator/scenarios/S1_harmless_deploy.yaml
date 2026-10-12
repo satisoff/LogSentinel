@@ -1,0 +1,19 @@
+id: S1
+name: harmless_deploy
+purpose: Refactor/redeploy with no functional change. Tests whether systems stay quiet.
+change:
+  change_type: deploy
+  service: orders
+  to_version: "1.1.0"
+  profile: {}
+change_variants:
+  - {service: orders,    to_version: "1.1.0"}
+  - {service: inventory, to_version: "1.0.1"}
+  - {service: gateway,   to_version: "1.0.1", profile: {extra_cpu_ms: 0.2}}
+  - {service: orders,    to_version: "1.1.1", profile: {extra_cpu_ms: 0.3}}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+oracle:
+  intended_effects: {}
+  change_causal: null

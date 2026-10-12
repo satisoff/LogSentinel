@@ -1,6 +1,6 @@
 # Scenario Catalogue — v0
 
-Each scenario is implemented in `orchestrator/scenarios/<id>.yaml`. The **oracle fields**
+Each scenario is implemented in `orchestrator/scenarios/<id>.yaml`; full sheets are in `sheets.md`. The **oracle fields**
 (`intended_effects`, `injected_fault`, `change_causal`) are written to `scenario.json` and are visible only to
 the labeler and the evaluator. The "expected label" column is the design intent. The **actual label is
 always computed by the labeler from measured outcomes**, so a scenario may yield different labels

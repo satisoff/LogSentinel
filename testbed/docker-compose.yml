@@ -1,0 +1,104 @@
+# LogSentinel testbed. RAM-first: every container has a memory cap; the total limit is about 1.1 GB.
+#   docker compose -f testbed/docker-compose.yml up -d --build
+#   docker compose -f testbed/docker-compose.yml --profile grafana up -d   (optional UI, +128 MB)
+name: logsentinel
+
+x-app: &app
+  build: ./services
+  image: logsentinel-svc:0.1
+  restart: unless-stopped
+  volumes:
+    - ../data/raw/_live_logs:/logs
+    - app-state:/state
+  environment: &app-env
+    DATABASE_URL: postgresql://app:app@toxiproxy:5433/app
+    ACCESS_LOG_SAMPLE: "0.05"
+  depends_on: [toxiproxy]
+  cpus: 1.0
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    command: >
+      postgres -c shared_buffers=32MB -c max_connections=40 -c work_mem=2MB
+               -c effective_cache_size=96MB -c max_parallel_workers_per_gather=0
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 192m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      retries: 20
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    restart: unless-stopped
+    command: ["-host=0.0.0.0", "-config=/config/toxiproxy.json"]
+    volumes:
+      - ./observability/toxiproxy.json:/config/toxiproxy.json:ro
+    ports: ["127.0.0.1:8474:8474"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    mem_limit: 32m
+
+  gateway:
+    <<: *app
+    environment: { <<: *app-env, SERVICE: gateway }
+    ports: ["127.0.0.1:8080:8000"]
+    depends_on: [orders, inventory]
+    mem_limit: 128m
+
+  orders:
+    <<: *app
+    environment: { <<: *app-env, SERVICE: orders }
+    ports: ["127.0.0.1:8081:8000"]
+    mem_limit: 128m
+
+  inventory:
+    <<: *app
+    environment: { <<: *app-env, SERVICE: inventory }
+    ports: ["127.0.0.1:8082:8000"]
+    mem_limit: 192m  # the leak scenario (S6) runs into this limit -> OOM kill -> restart
+
+  loadgen:
+    <<: *app
+    environment: { <<: *app-env, SERVICE: loadgen, LOAD_RPS: "20", LATENCY_SLO_MS: "300" }
+    ports: ["127.0.0.1:8089:8000"]
+    depends_on: [gateway]
+    mem_limit: 128m
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=10d
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    mem_limit: 256m
+
+  grafana:
+    image: grafana/grafana-oss:11.2.0
+    profiles: [grafana]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/ds.yml:ro
+    ports: ["127.0.0.1:3000:3000"]
+    mem_limit: 128m
+
+volumes:
+  pgdata:
+  promdata:
+  app-state:

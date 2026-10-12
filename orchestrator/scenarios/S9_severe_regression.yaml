@@ -1,0 +1,20 @@
+id: S9
+name: severe_regression
+purpose: Bad config/deploy causing a large error-rate or latency increase. Must be escalated quickly -> CR.
+change:
+  change_type: config
+  service: gateway
+  to_version: "2.0.0"
+  profile: {error_fraction: 0.15}
+change_variants:
+  - {service: gateway, to_version: "2.0.0", profile: {error_fraction: 0.10}}
+  - {service: gateway, to_version: "2.0.1", profile: {error_fraction: 0.25}}
+  - {service: gateway, to_version: "2.0.2", profile: {upstream_timeout_ms: 60}}
+  - {service: orders,  to_version: "1.5.0", profile: {error_fraction: 0.20}}
+  - {service: gateway, to_version: "2.0.3", profile: {error_fraction: 0.30}, rollout_pct: 50}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+oracle:
+  intended_effects: {}
+  change_causal: true

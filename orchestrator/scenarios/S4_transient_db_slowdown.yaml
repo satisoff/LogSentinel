@@ -1,0 +1,23 @@
+id: S4
+name: transient_db_slowdown
+purpose: Harmless config change, then a short coincident DB slowdown. Unexpected but short-lived -> TA.
+change:
+  change_type: config
+  service: orders
+  to_version: "1.0.0+cfg1"
+  profile: {}
+change_variants:
+  - {service: orders,    to_version: "1.0.0+cfg1"}
+  - {service: orders,    to_version: "1.0.0+cfg2"}
+  - {service: inventory, to_version: "1.0.0+cfg1"}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+faults:
+  - type: db_latency
+    at_min: {uniform: [3, 12]}
+    duration_min: {uniform: [1.0, 3.0]}
+    params: {latency_ms: {uniform: [120, 400]}, jitter_ms: 20}
+oracle:
+  intended_effects: {}
+  change_causal: false

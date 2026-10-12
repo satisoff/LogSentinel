@@ -71,7 +71,9 @@ systems under each setting. A ranking that flips under plausible costs must be r
 
 ## 5. Uncertainty and statistics
 
-- **Episode-level** non-parametric bootstrap, stratified by scenario, 2,000 resamples, 95% percentile CIs.
+- **Cluster bootstrap over `change_id`**, stratified by scenario, 2,000 resamples, 95% percentile CIs.
+  Replicates of the same change (seeds, workloads) are correlated, so resampling individual
+  episodes would understate uncertainty. Episode-level bootstrap CIs are reported alongside, for reference only.
 - **Paired** bootstrap for differences between systems on the same test episodes. McNemar's test for
   alert/no-alert disagreement on harmful episodes.
 - Training randomness: 5 seeds per learned model. Report the mean, and the CI across seeds and episodes.
@@ -105,4 +107,4 @@ Window lengths T_pre/T_post ∈ {15, 30, 45} min · label thresholds P_mat and B
 grid · cost matrix (above).
 
 ## Changelog
-- v0 (2026-10-12): initial draft.
+- v0 (2026-10-12): initial draft. Bootstrap changed to cluster bootstrap over change_id.

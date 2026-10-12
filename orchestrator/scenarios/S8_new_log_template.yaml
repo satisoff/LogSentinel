@@ -1,0 +1,20 @@
+id: S8
+name: legitimate_new_log_template
+purpose: Deploy adds a new structured log event with no service impact. New templates alone should not trigger action.
+change:
+  change_type: deploy
+  service: orders
+  to_version: "1.4.0"
+  profile: {new_log_event: "order audit recorded", new_log_every: 10}
+change_variants:
+  - {service: orders,    to_version: "1.4.0", profile: {new_log_event: "order audit recorded", new_log_every: 10}}
+  - {service: orders,    to_version: "1.4.1", profile: {new_log_event: "pricing rule evaluated", new_log_every: 3}}
+  - {service: inventory, to_version: "1.4.0", profile: {new_log_event: "cache warmed for sku", new_log_every: 25}}
+  - {service: gateway,   to_version: "1.4.0", profile: {new_log_event: "request tagged with tenant", new_log_every: 5}}
+workload_variants:
+  profile: [steady, diurnal, bursty]
+  rps: [15, 20, 25]
+oracle:
+  intended_effects: {}
+  new_log_templates: true
+  change_causal: true

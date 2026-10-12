@@ -1,0 +1,8 @@
+# Keep in sync with the versions the in-process tests run against (tests/test_services.py).
+fastapi==0.143.0
+starlette==1.7.0
+uvicorn==0.54.0
+httpx==0.28.1
+asyncpg==0.32.0
+prometheus-client==0.26.0
+pydantic==2.14.1
