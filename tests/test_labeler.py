@@ -134,3 +134,11 @@ def test_labeler_is_deterministic():
     df = make_series(seed=7)
     df.loc[window(df, 5, 30), "bad"] = int(REQ * 0.04)
     assert label_episode(df, Oracle(), CFG).to_dict() == label_episode(df, Oracle(), CFG).to_dict()
+
+
+def test_tiny_absolute_cpu_wiggle_is_not_a_deviation():
+    df = make_series()
+    df["svc_cpu"] = 0.05
+    df.loc[window(df, 2, 5), "svc_cpu"] = 0.07  # +40% relative, but only +0.02 cores
+    res = label_episode(df, Oracle(), CFG)
+    assert res.explained and res.label == "BA"

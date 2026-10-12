@@ -33,7 +33,9 @@ All impact criteria are measured at the **user-facing gateway**. Per-request out
 load generator, which acts as the client.
 
 - A request is **bad** if `status ≥ 500`, or it timed out, or `latency > L_slo`.
-- `L_slo` = 300 ms ⟨pilot⟩. Set to roughly 3× the healthy baseline p95 measured in pilots.
+- `L_slo` = **50 ms** (pilot 1 on GitHub runners: healthy p95 9–18 ms, p99 ≤ 25 ms; see
+  `docs/pilots/pilot1.md`). The SLO is environment-specific; episodes collected under a different SLO
+  are rejected (`slo_mismatch`).
 - SLO target = 99% good requests ⟨pilot⟩, so the error budget `β` = 0.01.
 - `bad_frac(t)` = bad requests / total requests in step `t`.
 - **Burn rate** `b_w(t)` = mean bad fraction over the trailing window `w`, divided by `β`.
@@ -128,3 +130,4 @@ label, and a sensitivity run uses the automatic label.
 
 ## Changelog
 - v0 (2026-10-12): initial draft. TA rule split into short-lived material impact vs. recovered unexpected deviation; horizon-truncation ambiguity added. Multi-window impact states: a short 1-min window for material time and severe persistence (the earlier trailing-only windows made a 15 s outage count as 2 min severe); raw-step impact onset. Deviation oracle made one-sided (higher-is-worse).
+- v0 (2026-10-12, after pilot 1): L_slo 300 → 50 ms; absolute minimum deviations per metric family.

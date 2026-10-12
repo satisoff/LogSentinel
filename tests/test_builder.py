@@ -62,7 +62,8 @@ def make_raw_run(tmp_path, *, name="run-test-S5-s0", bad_post=0.0, target=20.0, 
     scenario = {"scenario": "S5", "name": "inefficient_query_deploy", "seed": 0, "variant_index": 0,
                 "change": {"change_type": "deploy"}, "workload": {"rps": target, "profile": "steady"},
                 "oracle": {"intended_effects": {}, "change_causal": True},
-                "pre_min": pre_min, "horizon_min": horizon_min, "host_context": {"before": [], "after": []}}  # fmt: skip
+                "pre_min": pre_min, "horizon_min": horizon_min, "host_context": {"before": [], "after": []},
+                "latency_slo_ms": 50.0}  # fmt: skip
     (run / "change.json").write_text(json.dumps(change))
     (run / "scenario.json").write_text(json.dumps(scenario))
     return run
@@ -145,3 +146,22 @@ def test_view_enforces_cutoff_and_hides_oracle(tmp_path, out):
     forbidden = {"label", "oracle", "change_causal", "intended_effects", "scenario", "run_id"}
     assert forbidden.isdisjoint(view.change)
     assert load_label(meta["episode_id"], root=out)["label"] == "AR"
+
+
+def test_absent_counter_series_are_true_zeros_where_traffic_observed(tmp_path, out):
+    run = make_raw_run(tmp_path)
+    m = pd.read_parquet(run / "metrics.parquet")
+    m[m["name"] != "bad"].to_parquet(run / "metrics.parquet", index=False)  # never incremented
+    meta = build_episode(run, out)
+    s = pd.read_parquet(out / meta["episode_id"] / "series.parquet")
+    assert (s["bad"] == 0).all() and meta["status"] == "ok"
+
+
+def test_run_collected_with_other_slo_is_rejected(tmp_path, out):
+    run = make_raw_run(tmp_path)
+    sc = json.loads((run / "scenario.json").read_text())
+    del sc["latency_slo_ms"]  # legacy run: counted "bad" at the old 300 ms default
+    (run / "scenario.json").write_text(json.dumps(sc))
+    meta = build_episode(run, out)
+    assert "slo_mismatch" in meta["reject_reasons"]
+    assert meta["quality"]["latency_slo_ms"] == {"run": 300.0, "labels": 50.0}

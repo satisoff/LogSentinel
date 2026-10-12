@@ -137,6 +137,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
         "window": {"start": start, "end": end, "t0": t0},
         "warmup_min": warmup_min,
         "stack": tb.STACK,
+        "latency_slo_ms": tb.latency_slo_ms(),  # what the load generator counted as "bad"
         # data-quality context: other containers competing for the laptop's CPU/RAM
         "host_context": {"before": host_before, "after": host_after},
         "log_lines": log_counts,

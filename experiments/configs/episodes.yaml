@@ -10,7 +10,9 @@ quality:
   workload_change_tolerance: 0.15
 
 # flags that reject an episode (it stays in the manifest, with status=rejected)
-reject_flags: [missing_data, gap_near_t0, load_unstable, baseline_contaminated, change_not_applied]
+reject_flags: [missing_data, gap_near_t0, load_unstable, baseline_contaminated, change_not_applied, slo_mismatch]
+# runs collected before the SLO was recorded (pilot 1, 2026-10-12) used the old loadgen default
+legacy_latency_slo_ms: 300
 
 app_services: [gateway, orders, inventory]
 

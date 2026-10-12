@@ -16,7 +16,8 @@ workload_variants:
   rps: [15, 20, 25]
 oracle:
   # pilot-calibrate: measured shift per variant, then freeze
+  # pilot 1: on ~9 ms baselines, +3-5 ms CPU per request is +50-100% p95; envelope widened.
   intended_effects:
-    gw_latency_p95_ms: {max_rel: 0.5}
-    svc_cpu: {max_rel: 1.5}
+    gw_latency_p95_ms: {max_rel: 1.5}
+    svc_cpu: {max_rel: 2.0}
   change_causal: true

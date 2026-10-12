@@ -75,7 +75,7 @@ services:
 
   loadgen:
     <<: *app
-    environment: { <<: *app-env, SERVICE: loadgen, LOAD_RPS: "20", LATENCY_SLO_MS: "300" }
+    environment: { <<: *app-env, SERVICE: loadgen, LOAD_RPS: "20", LATENCY_SLO_MS: "${LS_LATENCY_SLO_MS:-50}" }
     ports: ["127.0.0.1:${LS_PORT_LOADGEN:-8089}:8000"]
     depends_on: [gateway]
     mem_limit: 128m

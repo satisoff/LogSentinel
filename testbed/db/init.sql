@@ -6,6 +6,8 @@ CREATE TABLE stock (sku text PRIMARY KEY REFERENCES products(sku), qty bigint NO
 INSERT INTO stock SELECT sku, 1000000000 FROM products;
 
 -- customer_ref is deliberately NOT indexed: scenario S5 (inefficient query) filters on it.
+-- 600k seed rows (pilot 1: a 200k-row scan cost only ~5 ms on CI CPUs). Keep in sync with
+-- orchestrator/testbed.py SEED_ORDERS. Lookups by id still use ids 1..200000.
 CREATE TABLE orders (
   id bigserial PRIMARY KEY,
   customer_ref text NOT NULL,
@@ -14,5 +16,5 @@ CREATE TABLE orders (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO orders (customer_ref, sku, qty)
-SELECT 'c' || g, 'sku-' || (1 + g % 1000), 1 + g % 5 FROM generate_series(1, 200000) g;
+SELECT 'c' || g, 'sku-' || (1 + g % 1000), 1 + g % 5 FROM generate_series(1, 600000) g;
 ANALYZE;

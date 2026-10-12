@@ -6,11 +6,13 @@ change:
   change_type: deploy
   service: inventory
   to_version: "1.3.0"
-  profile: {leak_kb_per_req: 12}
+  profile: {leak_kb_per_req: 30}
 change_variants:
-  - {to_version: "1.3.0", profile: {leak_kb_per_req: 8}}
-  - {to_version: "1.3.1", profile: {leak_kb_per_req: 12}}
-  - {to_version: "1.3.2", profile: {leak_kb_per_req: 18}}
+  # pilot 1: 8 KB/req grew RSS 2.2 MB/min at 4.3 inventory req/s -> OOM only after ~62 min.
+  # Calibrated for OOM at roughly 26 / 17 / 12 min (192 MB limit, ~58 MB baseline):
+  - {to_version: "1.3.0", profile: {leak_kb_per_req: 20}}
+  - {to_version: "1.3.1", profile: {leak_kb_per_req: 30}}
+  - {to_version: "1.3.2", profile: {leak_kb_per_req: 45}}
 workload_variants:
   profile: [steady, diurnal]
   rps: [15, 20, 25]

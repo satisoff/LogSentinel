@@ -87,6 +87,21 @@ def align_series(
     for col in CLIENT_COLUMNS:
         if col not in df:
             df[col] = np.nan
+    # Prometheus has no series for a labelled counter that never incremented. Where traffic was
+    # observed, an absent count is a true zero, not missing data (pilot 1: episodes without any
+    # bad request had bad=NaN).
+    observed = df["requests"].notna()
+    for col in COUNT_COLUMNS - {"requests"}:
+        df[col] = df[col].where(df[col].notna() | ~observed, 0.0)
+    for svc in services:
+        svc_obs = df.get(f"svc_rps__{svc}", pd.Series(np.nan, index=df.index)).notna()
+        for name in ("retries", "timeouts", "exceptions"):
+            col = f"{name}__{svc}"
+            df[col] = (
+                df[col].where(df[col].notna() | ~svc_obs, 0.0)
+                if col in df
+                else np.where(svc_obs, 0.0, np.nan)
+            )
 
     # Service-agnostic aggregates used by the labeler's deviation oracle.
     df["gw_error_rate"] = df["errors_5xx"] / df["requests"].replace(0, np.nan)
@@ -215,6 +230,12 @@ def quality_checks(
     details["other_containers"] = sorted(others)
     if others:
         flags.append("host_noise")
+
+    # "bad" is decided by the load generator at collection time; labels must use the same SLO.
+    run_slo = float(scenario.get("latency_slo_ms", cfg.legacy_latency_slo_ms))
+    details["latency_slo_ms"] = {"run": run_slo, "labels": label_cfg.slo.latency_slo_ms}
+    if run_slo != label_cfg.slo.latency_slo_ms:
+        flags.append("slo_mismatch")
 
     std = cfg.standard_windows
     if scenario["pre_min"] != std["pre_min"] or scenario["horizon_min"] not in std["horizon_min"]:

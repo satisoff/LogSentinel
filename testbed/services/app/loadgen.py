@@ -35,6 +35,14 @@ BAD = Counter(
 LAT = Histogram("client_latency_seconds", "Client-observed latency", ["route"], buckets=LAT_BUCKETS)
 TARGET_RPS = Gauge("client_target_rps", "Current target request rate")
 INFLIGHT = Gauge("client_inflight", "In-flight requests")
+ROUTES = ("get_order", "get_stock", "create_order")
+OUTCOMES = ("ok", "error_5xx", "error_4xx", "timeout", "conn_error", "dropped")
+# Pre-create every labelled child so Prometheus exports explicit zeros (not "no series").
+for _route in ROUTES:
+    BAD.labels(_route)
+    LAT.labels(_route)
+    for _outcome in OUTCOMES:
+        REQS.labels(_route, _outcome)
 
 
 class LoadConfig(BaseModel):

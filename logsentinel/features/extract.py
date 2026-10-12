@@ -19,7 +19,7 @@ import pandas as pd
 
 from logsentinel.episodes.labeler import LabelConfig
 from logsentinel.episodes.store import EpisodeView
-from logsentinel.expected.baseline import ShiftPrior, expected_bands
+from logsentinel.expected.baseline import ShiftPrior, expected_bands, family
 from logsentinel.ts import merge_runs, runs, sustained, trailing_ratio
 
 CHANGE_TYPES = ("deploy", "config", "feature_flag", "workload")
@@ -50,7 +50,7 @@ def _slope_per_min(t: np.ndarray, y: np.ndarray) -> tuple[float, float]:
     return slope, (slope / se if se > 0 else 0.0)
 
 
-def _deviation(band: pd.DataFrame, cfg: dict, step: int) -> dict[str, float]:
+def _deviation(band: pd.DataFrame, cfg: dict, step: int, metric: str = "") -> dict[str, float]:
     post = band[band["t"] >= 0]
     if post.empty or post["expected"].isna().all():
         return {}
@@ -58,7 +58,9 @@ def _deviation(band: pd.DataFrame, cfg: dict, step: int) -> dict[str, float]:
     half = np.maximum((hi - lo) / 2, 1e-9)
     z = (obs - exp) / half
     # One-sided: every key metric is higher-is-worse, so only upward deviations count.
-    out = np.nan_to_num(obs > hi).astype(bool)
+    # ... and by an operationally meaningful absolute amount (e.g. >= 5 ms, >= 0.05 cores).
+    min_abs = cfg.get("abs_min", {}).get(family(metric), 0.0)
+    out = np.nan_to_num((obs > hi) & (obs - exp >= min_abs)).astype(bool)
     out = sustained(out, max(1, int(cfg["min_out_min"] * 60 / step)))
     spans = merge_runs(runs(out), int(60 / step))
     recent = int(cfg["recent_min"] * 60 / step)
@@ -191,7 +193,7 @@ def extract(
     bands = expected_bands(s, metrics, ctype, svc, prior, **policy["expected"])
     dev_summary = {}
     for metric, band in bands.items():
-        d = _deviation(band, fcfg, step)
+        d = _deviation(band, fcfg, step, metric)
         if not d:
             continue
         key = alias.get(metric, metric)

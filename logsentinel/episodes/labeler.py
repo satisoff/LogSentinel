@@ -22,6 +22,7 @@ import pandas as pd
 import yaml
 from pydantic import BaseModel
 
+from logsentinel.expected.baseline import family
 from logsentinel.ts import merge_runs, runs, sustained, trailing_ratio
 
 LABELS = ("BA", "TA", "AR", "CR")
@@ -68,6 +69,7 @@ class DeviationOracle(BaseModel):
     r_min: float
     min_sustain_min: float
     intended_tolerance: float
+    abs_min: dict[str, float] = {}
 
 
 class LabelConfig(BaseModel):
@@ -168,7 +170,7 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
             continue
         med = float(np.nanmedian(base))
         mad = float(np.nanmedian(np.abs(base - med)))
-        thr = max(dev.k_mad * mad, dev.r_min * abs(med))
+        thr = max(dev.k_mad * mad, dev.r_min * abs(med), dev.abs_min.get(family(metric), 0.0))
         # one-sided: all oracle metrics are higher-is-worse (an improvement is not a regression)
         raw_dev = horizon & (values - med > thr)
         effect = oracle.intended_effects.get(metric)

@@ -97,6 +97,7 @@ def make_run(
         "workload": {"rps": rps, "profile": "steady"},
         "oracle": {"intended_effects": {}, "change_causal": True},
         "pre_min": pre_min, "horizon_min": horizon_min, "host_context": {"before": [], "after": []},
+        "latency_slo_ms": 50.0,
     }  # fmt: skip
     (run / "change.json").write_text(json.dumps(ch))
     (run / "scenario.json").write_text(json.dumps(scenario))

@@ -16,6 +16,7 @@ features:
   recent_min: 2       # "now" window for current-state features
   slope_min: 5        # window for trend (worsening) features
   min_out_min: 1      # a metric "deviates" if outside its interval for at least this long
+  abs_min: {latency: 5.0, cpu: 0.05, rss: 10.0, error: 0.005, count: 1.0, rps: 1.0}  # same as labels.yaml
 
 rules:
   cr_severe_min: 2            # same severity definition as the SLO (operational knowledge, not oracle)

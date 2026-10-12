@@ -40,10 +40,10 @@ async def get_order(order_id: int):
     maybe_inject_error(p)
     await apply_behaviour(p)
     if p.query_mode == "unindexed":
-        # Inefficient deploy: filter on the unindexed customer_ref column -> sequential scan.
+        # Inefficient deploy: filter on the unindexed customer_ref column, no LIMIT -> full scan.
         rows = await db.fetch(
             "order_by_customer",
-            "SELECT id, customer_ref, sku, qty FROM orders WHERE customer_ref = $1 LIMIT 1",
+            "SELECT id, customer_ref, sku, qty FROM orders WHERE customer_ref = $1",
             f"c{order_id}",
         )
     else:

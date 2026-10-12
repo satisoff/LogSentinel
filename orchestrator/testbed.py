@@ -42,7 +42,16 @@ def compose_env() -> dict[str, str]:
     env = dict(os.environ)
     env.update({f"LS_PORT_{svc.upper()}": str(port) for svc, port in PORTS.items()})
     env["LS_LIVE_LOGS"] = str(LIVE_LOGS)
+    env["LS_LATENCY_SLO_MS"] = str(latency_slo_ms())
     return env
+
+
+def latency_slo_ms() -> float:
+    """Single source of truth: the label config's SLO is what the load generator counts as bad."""
+    import yaml
+
+    with open(ROOT / "experiments" / "configs" / "labels.yaml", encoding="utf-8") as f:
+        return float(yaml.safe_load(f)["slo"]["latency_slo_ms"])
 
 
 class TestbedError(RuntimeError):
@@ -168,7 +177,8 @@ def pause(service: str, paused: bool) -> None:
 
 
 # --- Reset between episodes -------------------------------------------------------------------
-RESET_SQL = "DELETE FROM orders WHERE id > 200000; UPDATE stock SET qty = 1000000000;"
+SEED_ORDERS = 600_000  # rows inserted by testbed/db/init.sql
+RESET_SQL = f"DELETE FROM orders WHERE id > {SEED_ORDERS}; UPDATE stock SET qty = 1000000000;"
 
 
 def reset_all() -> None:

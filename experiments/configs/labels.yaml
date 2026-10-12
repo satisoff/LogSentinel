@@ -9,7 +9,8 @@ windows:
   t_horizon_min: 30    # pilot; extended per scenario for delayed onset (S6)
 
 slo:
-  latency_slo_ms: 300  # pilot: ~3x healthy baseline p95
+  latency_slo_ms: 50   # pilot 1 (GitHub runners, 2026-10-12): healthy p95 9-18 ms, p99 <= 25 ms.
+                       # Environment-specific: the laptop (p95 ~50 ms) would need ~300 ms. Do not mix.
   target: 0.99         # error budget beta = 1 - target
 
 impact:
@@ -36,5 +37,8 @@ deviation_oracle:
   r_min: 0.20
   min_sustain_min: 1
   intended_tolerance: 0.5   # a declared shift r is accepted within +-50% of its magnitude
+  # absolute minimum deviation per metric family (pilot 1: relative thresholds alone flagged
+  # +0.01-core CPU wiggles around a 0.05-core baseline as "unexplained")
+  abs_min: {latency: 5.0, cpu: 0.05, rss: 10.0, error: 0.005, count: 1.0, rps: 1.0}
 
 ambiguity_margin: 0.20      # decisive quantity within +-20% of its threshold -> ambiguous
