@@ -1,0 +1,40 @@
+# Ground-truth labeling parameters. Spec: docs/spec/labels.md
+# STATUS: DRAFT (v0). Values marked "pilot" are set from pilot runs, then frozen before training.
+version: v0-draft
+frozen: false
+
+windows:
+  step_s: 15
+  t_pre_min: 30        # pilot
+  t_horizon_min: 30    # pilot; extended per scenario for delayed onset (S6)
+
+slo:
+  latency_slo_ms: 300  # pilot: ~3x healthy baseline p95
+  target: 0.99         # error budget beta = 1 - target
+
+impact:
+  short_window_min: 1  # material time and severe persistence are measured on this window
+  burn_window_min: 5
+  b_crit: 14.4         # Google SRE workbook fast-burn convention
+  err_window_min: 2
+  e_crit: 0.05         # pilot
+  d_crit_min: 2        # severe must persist this long
+  b_mat: 2.0           # pilot: excess burn rate for "material"
+  merge_gap_min: 1     # material intervals separated by < this are merged
+
+rules:
+  p_mat_min: 10        # AR (a): total material time
+  k_rec: 3             # AR (b): number of separate material intervals
+  k_rec_total_min: 5   #         ... with at least this total
+  tail_min: 5          # AR (c): material still present in the final tail_min of H
+  tail_total_min: 3    #         ... and total material time above this
+  recovery_min: 10     # TA: no deviant/material steps in the final recovery_min of H
+
+deviation_oracle:
+  metrics: [gw_latency_p95_ms, gw_error_rate, svc_cpu, svc_rss_mb, db_latency_p95_ms, retries, timeouts]
+  k_mad: 4.0
+  r_min: 0.20
+  min_sustain_min: 1
+  intended_tolerance: 0.5   # a declared shift r is accepted within +-50% of its magnitude
+
+ambiguity_margin: 0.20      # decisive quantity within +-20% of its threshold -> ambiguous

@@ -1,0 +1,433 @@
+# Project Brief for Claude: LogSentinel — Actionability-Aware, Change-Conditioned Qualification of Post-Change Anomalies
+
+## 1. Your Role
+
+Act as my research collaborator, software architect, ML engineer, and implementation partner for a research project named **LogSentinel**.
+
+Help me turn the research idea into a working, measurable, scientifically defensible system. I need you to understand the complete objective before proposing code, selecting models, creating datasets, or making architectural decisions.
+
+Do not jump straight into implementation without first understanding the research problem, identifying the key design decisions, and establishing a step-by-step implementation plan.
+
+Be technically rigorous. Challenge weak assumptions, identify missing pieces, and distinguish established methods from our proposed contribution. Do not claim that our approach is novel or superior unless the literature review and experimental evidence support that claim.
+
+---
+
+## 2. The Core Problem We Are Solving
+
+Modern software systems change continuously through:
+
+- Code deployments and application updates.
+- Configuration changes.
+- Feature-flag updates.
+- Dependency upgrades.
+- Infrastructure modifications.
+- Workload changes and other operational events.
+
+Existing anomaly detectors monitor telemetry such as latency, CPU utilization, error rates, memory consumption, and logs. They identify behavior that deviates from a learned baseline or expected pattern.
+
+However, **a deviation from previous behavior does not automatically mean that something is wrong**.
+
+For example, imagine that a service usually responds in 100 milliseconds. After a deployment, its response time increases to 120 milliseconds.
+
+A conventional anomaly detector might flag the increase because it differs from historical behavior. But several explanations are possible:
+
+1. The deployment introduced a genuine performance regression.
+2. The application intentionally changed its behavior.
+3. The increase is a short-lived adaptation during rollout.
+4. A temporary infrastructure issue caused the increase.
+5. The increase has no meaningful effect on users or service reliability.
+
+These cases should not necessarily result in the same operational response.
+
+The fundamental problem is that anomaly detection and deciding whether an anomaly deserves action are two different tasks.
+
+We want to investigate whether adding an operational qualification layer can help distinguish harmless deviations from genuinely harmful regressions.
+
+### Our central research question
+
+Can an actionability-aware, change-conditioned framework distinguish benign post-change behavioral deviations from operationally significant regressions while reducing false alerts and unnecessary operational actions compared with existing approaches?
+
+---
+
+## 3. What LogSentinel Actually Does
+
+LogSentinel is a proposed system that qualifies anomalous behavior observed after a software or configuration change.
+
+Think of it as two connected layers.
+
+### Layer 1: Anomaly detection and behavioral analysis
+
+This layer observes the system and identifies deviations or unusual behavior using telemetry such as:
+
+- Request latency and error rate.
+- CPU and memory utilization.
+- Request volume and traffic patterns.
+- Database latency and connection-pool usage.
+- Timeout, retry, and exception counts.
+- New log templates and error categories.
+
+It also uses the change event and pre-change baseline to estimate what behavior would reasonably be expected after the change.
+
+### Layer 2: Operational qualification — our main research focus
+
+This layer examines the anomaly evidence alongside change context, persistence, uncertainty, and service impact.
+
+It asks:
+
+- What changed in the software or its environment?
+- Is the observed deviation unexpected given that change?
+- Does it disappear quickly or persist over time?
+- Is it getting worse?
+- Are users or service-level objectives affected?
+- Does the evidence justify an operational action?
+
+The output is not merely an anomaly score. It is an operational qualification class and a recommended response.
+
+**The primary goal is not to reduce the number of anomalies that exist. It is to reduce unnecessary actions on detected anomalies without missing important regressions.**
+
+For example, the system may identify ten unusual episodes, but only three may warrant investigation or escalation. This is an illustrative example, not an expected or measured result. We must establish the actual numbers experimentally.
+
+Also, the qualification layer must not simply suppress alerts because they occurred near a deployment. A harmful deployment regression is exactly the type of event we need to detect.
+
+---
+
+## 4. The Four Operational Classes
+
+Every post-change episode should eventually receive one of four primary labels.
+
+**BA — Benign Adaptation**
+
+The observed deviation is expected given the change or has negligible service impact.
+
+Recommended response: No action.
+
+**TA — Transient Anomaly**
+
+An unexpected deviation occurs but is short-lived and operationally immaterial.
+
+Recommended response: Observe or continue monitoring.
+
+**AR — Actionable Regression**
+
+The deviation persists or recurs and produces material service-level degradation.
+
+Recommended response: Investigate.
+
+**CR — Critical Regression**
+
+The deviation crosses a predefined severe-impact threshold.
+
+Recommended response: Escalate immediately and consider rollback according to an explicit operational policy.
+
+These labels need formal definitions based on measurable criteria. We should not classify episodes using subjective intuition alone.
+
+For example, the labeling specification should define relevant thresholds, observation windows, persistence conditions, SLO impact, and the severity conditions separating AR from CR.
+
+The four classes are an experimental taxonomy, not a replacement for every organization's incident classification system.
+
+Important: benign behavior is not necessarily an anomaly in the conventional sense. If the input consists of previously detected anomalies, we need to define how BA represents an expected deviation that the underlying detector flagged. Alternatively, our pipeline can qualify broader post-change episodes, including episodes that never cross an anomaly detector's threshold. Analyze this design decision before implementation.
+
+---
+
+## 5. What Is Different From Existing Research?
+
+Our initial research draft identifies several closely related approaches:
+
+- **MELODY:** Deployment-level anomaly detection using multivariate telemetry, online feature extraction, and semi-supervised/hybrid modeling, with a production AutoRollback setting.
+- **SCWarn:** Multimodal detection of bad software changes using heterogeneous data and interpretable alerts.
+- Persistence-based anomaly suppression: reducing false alerts caused by short-lived anomalies.
+- Conventional context-blind statistical and ML anomaly detectors.
+- Cost-aware and SLO-aware alerting approaches.
+
+We must treat these as serious competing approaches or baselines, particularly MELODY and SCWarn.
+
+We must NOT claim that LogSentinel is the first system to use change context, multimodal telemetry, deployment-level anomaly detection, persistence, SLO-aware alerting, or automated rollback.
+
+Our current hypothesis is narrower:
+
+**The potentially differentiated contribution is explicitly formulating and evaluating post-change operational qualification as a joint decision over change-conditioned behavioral deviation, temporal persistence, and measurable service impact.**
+
+We aim to determine whether integrating these elements into an explicit qualification objective provides additional operational value beyond existing change-aware detectors and persistence filters.
+
+This is a hypothesis to investigate, not a proven novelty claim.
+
+Before committing to the final design, examine the relevant literature and compare our proposal with MELODY and SCWarn at the methodology and evaluation levels. Identify which differences are genuine, which are already covered by prior work, and what evidence would be necessary to justify the contribution.
+
+---
+
+## 6. How We Intend to Build the System
+
+The proposed pipeline is:
+
+1. Capture a software or configuration change.
+2. Build a change episode.
+3. Collect the pre-change baseline and post-change telemetry.
+4. Estimate expected post-change behavior conditioned on the change and workload.
+5. Calculate behavioral deviations and their uncertainty.
+6. Extract and fuse log and metric evidence.
+7. Track persistence, recurrence, severity, and recovery.
+8. Measure service impact using SLOs, error-budget burn, and affected-request fraction where available.
+9. Qualify the episode.
+10. Recommend an operational response and record the evidence supporting it.
+
+The architecture should keep anomaly evidence, qualification decisions, and operational actions separate. This lets us determine which components actually provide value.
+
+Do not begin with automatic rollback. Initially, LogSentinel should recommend actions and record decisions. Any future automated remediation must be separately evaluated and protected by explicit safety policies.
+
+---
+
+## 7. Which Model or Algorithm Should We Use?
+
+We have not yet established that one particular algorithm is optimal. Select the approach based on the available data, research objectives, interpretability, and experimental results.
+
+Our initial implementation should be practical rather than unnecessarily complex.
+
+### A. Expected-behavior model
+
+Estimate what post-change behavior should look like given:
+
+- The pre-change baseline.
+- Change type, service, version, and rollout information.
+- Current workload and relevant operating conditions.
+
+Start with a transparent statistical or tree-based approach. Consider more complex sequence models only if the dataset and results justify them.
+
+### B. Behavioral-deviation features
+
+Compare observed telemetry with its expected values or expected ranges.
+
+Retain uncertainty where possible. A small deviation within an appropriate prediction interval should not be treated identically to a substantial deviation outside that interval.
+
+### C. Qualification model
+
+This is the component that learns to classify episodes into BA, TA, AR, or CR.
+
+A plausible initial supervised approach is a tree-based classifier such as XGBoost or another suitable model, depending on the environment and dataset size. Compare it with a transparent rule-based policy.
+
+Potential input features include:
+
+- Change type, scope, version, and rollout percentage.
+- Metric deviations and prediction uncertainty.
+- Error-rate and latency changes.
+- Log severity counts, retries, timeouts, exceptions, and new log templates.
+- Duration of abnormal behavior.
+- Recurrence and cumulative severity.
+- Deviation slope and recovery behavior.
+- Affected-request fraction.
+- SLO violations and error-budget burn.
+
+The training labels must be derived from controlled experiments and predefined operational criteria. The model should learn from labeled examples rather than relying on hand-written assumptions disguised as learned intelligence.
+
+### D. Operational action policy
+
+Translate the qualification output into a recommendation:
+
+- BA → No action.
+- TA → Observe.
+- AR → Investigate.
+- CR → Escalate or consider rollback.
+
+The action policy must account for the different costs of false alerts, missed regressions, and unnecessary rollback.
+
+Calibrate probability thresholds and action thresholds on the development/validation data. Freeze them before final testing.
+
+Do not assume that the classifier alone constitutes the whole system. The model, feature extraction, uncertainty handling, qualification policy, and output explanation must work together.
+
+---
+
+## 8. How We Will Train the Qualification Model
+
+The dataset is a critical part of this project.
+
+We intend to build a small, controlled distributed application where we know what changes we make and can observe their consequences.
+
+A possible experimental application contains:
+
+- An API gateway.
+- Two or more application services.
+- A database.
+- A configurable workload/load generator.
+- Instrumentation that captures logs and metrics.
+- Optional distributed traces where feasible.
+
+Use appropriate observability tooling, such as OpenTelemetry, if it fits the implementation.
+
+For each controlled change, create a dataset episode containing:
+
+1. A pre-change baseline.
+2. Structured change metadata.
+3. Aligned post-change logs and metrics.
+4. Workload and relevant environmental conditions.
+5. Observed deviations and persistence information.
+6. Measured service impact.
+7. A documented ground-truth label and supporting evidence.
+
+A candidate starting design in the research draft is a 30-minute pre-change window and a 30-minute post-change observation window. Treat these as initial experimental choices, validate them in pilot runs, and perform sensitivity analysis rather than assuming that they are universally optimal.
+
+### Controlled scenarios to implement
+
+Include a reasonable range of scenarios drawn from the proposed research design:
+
+- Harmless deployment or refactor.
+- Workload increase without a software fault.
+- Short-lived database slowdown.
+- Inefficient-query deployment that causes sustained degradation.
+- Delayed memory leak.
+- Infrastructure failure occurring after a deployment but unrelated to it.
+- Legitimate new log template following a change.
+- Severe error-rate or latency increase.
+
+Each scenario should have a documented purpose, setup, expected behavior, impact criteria, and ground-truth labeling procedure.
+
+Use controlled fault injection and predefined service-impact conditions wherever possible. Expert review can help adjudicate ambiguous episodes; measure reviewer disagreement rather than pretending all labels are perfectly certain.
+
+The initial research draft proposes approximately 100–200 independent episodes as a planning target, not a guaranteed sufficient sample size. Begin with pilot experiments, estimate the feasibility and statistical requirements, and expand or repeat experiments as needed.
+
+### Avoid data leakage
+
+Split training, validation, and test data by independent change episode or change identity—not randomly by individual telemetry rows.
+
+Otherwise, adjacent windows from the same deployment can appear in both training and testing, producing misleadingly good results.
+
+Document the dataset schema, split strategy, label distribution, scenario distribution, and any class imbalance.
+
+---
+
+## 9. What Exactly Will We Compare?
+
+We must demonstrate whether the added qualification layer helps, rather than merely building a system that produces plausible labels.
+
+At minimum, compare:
+
+1. A context-blind statistical anomaly detector.
+2. A context-blind ML detector, such as an isolation-based detector or autoencoder.
+3. A change-aware detector that uses change metadata.
+4. A multimodal bad-change baseline inspired by SCWarn, where a suitable faithful implementation is feasible.
+5. An anomaly detector combined with fixed persistence-based alert suppression.
+6. The proposed complete LogSentinel pipeline.
+
+Compare against MELODY through a faithful implementation or an appropriately justified evaluation using available methods and data. Clearly disclose any differences in input data, reproduction fidelity, or experimental setup. Do not claim a direct head-to-head result if comparable execution was not possible.
+
+Also conduct ablation studies by removing one component at a time:
+
+- Change context.
+- Log features.
+- Metric features.
+- Log–metric fusion.
+- Persistence.
+- Service-impact/SLO features.
+- Adaptive decision policy.
+
+These experiments should identify whether each component contributes incremental value.
+
+---
+
+## 10. How We Will Measure Success
+
+Our primary objective is **reducing false alerts and unnecessary operational actions while retaining timely detection of harmful regressions**.
+
+Do not evaluate success through accuracy or F1 alone.
+
+Prioritize:
+
+- False alerts per change episode at a fixed recall or predefined alert budget.
+- Precision and recall for harmful regressions.
+- Detection delay.
+- Lead time before SLO violations.
+- Unnecessary rollback rate.
+- Probability calibration.
+- Error-budget burn avoided, where it can be measured credibly.
+- Action-weighted operational utility.
+- Performance on unseen changes and different workload conditions.
+
+Define how an alert is counted, what qualifies as a missed regression, and what constitutes an unnecessary action before evaluating the final test set.
+
+For example, a system that suppresses nearly every alert may have a low false-alert count but would be useless if it also misses serious regressions. The evaluation must account for this trade-off.
+
+Use episode-level confidence intervals and appropriate repeated experiments. Perform sensitivity analysis on the costs assigned to false alerts, missed regressions, unnecessary rollbacks, and prevented degradation.
+
+The key result we want to investigate is whether LogSentinel can achieve fewer unnecessary actions at comparable harmful-regression recall and acceptable detection delay.
+
+**Do not fabricate results or state that LogSentinel outperforms existing systems until the experiments establish this. Negative results must be reported honestly.**
+
+---
+
+## 11. Required Implementation Outputs
+
+Help me build the following, in a sensible order:
+
+1. **Research and technical specification:** Refined problem statement, system boundaries, literature comparison, assumptions, and proposed novelty claim.
+2. **System architecture:** A clear component diagram and the data flow from change capture to final operational recommendation.
+3. **Dataset specification:** Episode schema, telemetry schema, label definitions, ground-truth rules, and train/validation/test split strategy.
+4. **Experimental application:** A reproducible distributed application and workload/fault-injection mechanisms.
+5. **Telemetry and episode builder:** Collection, alignment, feature extraction, and episode creation.
+6. **Baseline detectors:** Implementations that make meaningful comparisons possible.
+7. **Qualification layer:** A rule-based baseline, candidate supervised model, and interpretable operational policy.
+8. **Evaluation pipeline:** Reproducible training, testing, ablations, comparison tables, plots, and uncertainty estimates.
+9. **Documentation:** Setup instructions, configuration, experiment commands, assumptions, known limitations, and reproducibility instructions.
+10. **Research-paper evidence:** Actual methods, dataset statistics, results, comparisons, and limitations suitable for incorporating into the final paper.
+
+Recommend a project structure and technology stack after checking the existing environment, rather than assuming that everything already exists or creating unnecessary infrastructure.
+
+---
+
+## 12. How I Want You to Work
+
+Follow this implementation process.
+
+**Phase 1 — Understand and plan**
+
+Restate your understanding of the problem and proposed contribution. Identify unresolved decisions and research risks. Review the relevant literature, particularly MELODY and SCWarn. Present the architecture, dataset strategy, algorithm choices, and experimental plan.
+
+**Phase 2 — Define precise criteria**
+
+Specify the four labels, episode schema, ground-truth rules, anomaly evidence, impact thresholds, and evaluation definitions before training a model.
+
+**Phase 3 — Build a minimal working version**
+
+Create an end-to-end prototype with controlled data, a basic detector, a qualification layer, and interpretable outputs. Keep the implementation modular so that components can be changed independently.
+
+**Phase 4 — Generate and validate data**
+
+Create controlled change episodes, verify telemetry collection, inspect labels, identify data-quality problems, and enforce episode-level splits.
+
+**Phase 5 — Train and evaluate**
+
+Train the candidate models, compare baselines, conduct ablations, measure performance and uncertainty, and investigate failures. Avoid tuning on the final test set.
+
+**Phase 6 — Refine and document**
+
+Use experimental results to improve the system, report what worked and what did not, and revise the research contribution to reflect the evidence.
+
+After each significant phase, provide a clear status report: completed work, evidence or tests, unresolved issues, key files changed, commands to reproduce, and recommended next steps.
+
+Before editing an existing project, inspect its current state. Avoid destructive changes, preserve useful existing work, and do not introduce infrastructure simply because it is technically possible.
+
+---
+
+## 13. Constraints and Scientific Standards
+
+- Do not build an unnecessarily complex deep-learning model before establishing simple, credible baselines.
+- Do not generate arbitrary synthetic labels without a documented causal scenario and labeling rule.
+- Do not treat correlation with a deployment as proof that the deployment caused an incident.
+- Do not equate statistical unusualness with operational harm.
+- Do not automatically dismiss anomalies just because they follow a deployment.
+- Do not leak related episodes across dataset partitions.
+- Do not claim novelty based only on combining components that prior work already uses.
+- Do not report expected outcomes as measured outcomes.
+- Do not hide negative results, weaknesses, or limitations.
+- Make every experiment reproducible.
+- Keep classification, alerting, and automated remediation distinct.
+- Prefer evidence-based design decisions and explain the trade-offs clearly.
+
+## 14. The Intended Final Outcome
+
+The intended outcome is a working and experimentally evaluated research prototype that answers a precise question:
+
+**Does explicitly qualifying post-change deviations using change-conditioned expectations, temporal persistence, and measurable service impact reduce unnecessary operational actions without sacrificing timely detection of harmful regressions?**
+
+We are not simply building another anomaly detector. We are investigating whether a carefully designed operational decision layer can make anomaly detection more useful to engineers operating continuously changing software systems.
+
+The research is successful only to the extent that we define the decision task rigorously, implement an appropriate system, compare it fairly with existing methods, and produce credible experimental evidence of its benefits or limitations.
+
+Start by reviewing this brief and proposing the technical specification, architecture, research risks, and phased implementation plan. Identify the critical decisions that must be finalized before coding. Do not assume that the research hypothesis is already proven.

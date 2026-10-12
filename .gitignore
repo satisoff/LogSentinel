@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Data and experiment outputs (reproducible from configs; never commit raw telemetry)
+data/raw/*
+data/episodes/*
+data/splits/*
+!data/**/.gitkeep
+mlruns/
+experiments/reports/*
+!experiments/reports/.gitkeep
+
+# Infra
+infra/terraform/**/.terraform/
+*.tfstate*
+.env

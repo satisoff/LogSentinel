@@ -1,0 +1,47 @@
+[project]
+name = "logsentinel"
+version = "0.1.0"
+description = "Actionability-aware, change-conditioned qualification of post-change anomalies (research prototype)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "pyarrow>=16",
+  "scipy>=1.13",
+  "scikit-learn>=1.5",
+  "statsmodels>=0.14",
+  "lightgbm>=4.3",
+  "xgboost>=2.1",
+  "drain3>=0.9.11",
+  "duckdb>=1.0",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "requests>=2.32",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.36", "plotly>=5.22"]
+tracking = ["mlflow>=2.14"]
+dev = ["pytest>=8.2", "ruff>=0.5"]
+
+[project.scripts]
+ls-change = "orchestrator.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["logsentinel", "orchestrator"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
