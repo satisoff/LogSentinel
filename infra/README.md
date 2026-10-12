@@ -9,6 +9,7 @@ stacks run in parallel, raw runs are pulled back, and episodes are built locally
 | `cloud-init.yaml` | VM (first boot) | installs Docker Engine + compose plugin, uv |
 | `push.sh` | laptop | copies committed code (`git archive`) to the VM and runs `vm_setup.sh` |
 | `vm_setup.sh` | VM | Python 3.12 venv, dependencies, sanity tests, suggested stack count |
+| `bootstrap.sh` | VM | fallback when the provider did not apply cloud-init (used automatically by `vm_setup.sh` after 10 min) |
 | `collect.sh` | VM | N parallel stacks share the scenario × seed list; then builds episodes |
 | `pull.sh` | laptop | downloads `data/raw` + logs, builds episodes locally |
 

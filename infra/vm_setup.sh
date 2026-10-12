@@ -3,7 +3,13 @@
 set -euo pipefail
 cd ~/LogSentinel
 export PATH="$HOME/.local/bin:$PATH"
-until [ -f /var/lib/cloud/instance/logsentinel-ready ]; do echo "waiting for cloud-init..."; sleep 10; done
+for _ in $(seq 60); do [ -f /var/lib/cloud/instance/logsentinel-ready ] && break; echo "waiting for cloud-init..."; sleep 10; done
+if [ ! -f /var/lib/cloud/instance/logsentinel-ready ]; then
+  echo "cloud-init did not finish; running infra/bootstrap.sh instead"
+  sudo bash infra/bootstrap.sh
+fi
+# docker group membership applies to new logins; use sg for this session if needed
+docker info >/dev/null 2>&1 || exec sg docker -c "bash $0"
 uv python install 3.12
 [ -d .venv ] || uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python -e ".[dev,testbed]" -q
