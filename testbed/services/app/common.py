@@ -15,6 +15,7 @@ import os
 import random
 import sys
 import time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -30,6 +31,9 @@ STATE_DIR = Path(os.environ.get("STATE_DIR", "/state"))
 LOG_DIR = Path(os.environ.get("LOG_DIR", "/logs"))
 ACCESS_LOG_SAMPLE = float(os.environ.get("ACCESS_LOG_SAMPLE", "0.05"))
 DEFAULT_VERSION = os.environ.get("APP_VERSION", "1.0.0")
+# Seconds before a (re)started service accepts connections, like an app warming up (pool, caches).
+# Pilot 3: with instant restarts an OOM crash loop had no user-visible impact at all.
+STARTUP_DELAY_S = float(os.environ.get("APP_STARTUP_DELAY_S", "0"))
 
 
 # --- Behaviour profile -----------------------------------------------------------------------
@@ -164,7 +168,19 @@ class ServiceError(Exception):
 
 
 def create_app(title: str, lifespan=None) -> FastAPI:
-    app = FastAPI(title=title, docs_url=None, redoc_url=None, lifespan=lifespan)
+    @asynccontextmanager
+    async def warmup(app_: FastAPI):
+        # uvicorn binds its socket only after lifespan startup, so connections are refused meanwhile
+        if STARTUP_DELAY_S > 0:
+            log.info("warming up for %.0f s", STARTUP_DELAY_S, extra={"event": "startup"})
+            await asyncio.sleep(STARTUP_DELAY_S)
+        if lifespan is None:
+            yield
+        else:
+            async with lifespan(app_):
+                yield
+
+    app = FastAPI(title=title, docs_url=None, redoc_url=None, lifespan=warmup)
     app.mount("/metrics", make_asgi_app())
     VERSION.labels(SERVICE, deployment.current.version).set(1)
 

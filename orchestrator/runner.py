@@ -86,8 +86,7 @@ def schedule_faults(
 def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW_DIR) -> Path:
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     run_id = f"run-{stamp}-{plan.scenario}-s{plan.seed}"
-    out = out_root / run_id
-    out.mkdir(parents=True)
+    out = out_root / run_id  # created only once data exists (a failed run leaves nothing behind)
     log.info("episode %s (%s, change %s)", run_id, plan.name, plan.change_id)
 
     tb.wait_healthy()
@@ -115,6 +114,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
     host_after = tb.host_context()
     start, end = t0 - plan.pre_min * 60, t0 + plan.horizon_min * 60
     metrics = export_window(tb.PROMETHEUS_URL, start, end)
+    out.mkdir(parents=True)
     metrics.to_parquet(out / "metrics.parquet", index=False)
     log_counts = slice_logs(tb.LIVE_LOGS, out / "logs", start, end)
 

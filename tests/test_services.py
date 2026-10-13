@@ -16,6 +16,7 @@ def _load(module: str, service: str, tmp_path, monkeypatch):
     monkeypatch.setenv("STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setenv("ACCESS_LOG_SAMPLE", "0")
+    monkeypatch.setenv("APP_STARTUP_DELAY_S", "0")
     monkeypatch.syspath_prepend(str(APP_DIR))
     for name in ("common", "db", module):
         sys.modules.pop(name, None)
@@ -112,3 +113,14 @@ def test_logs_are_json_lines(tmp_path, monkeypatch):
     lines = (tmp_path / "logs" / "gateway.jsonl").read_text().splitlines()
     doc = json.loads(lines[-1])
     assert doc["service"] == "gateway" and doc["event"] == "deploy" and doc["ts"].endswith("+00:00")
+
+
+def test_startup_delay_holds_back_serving(tmp_path, monkeypatch):
+    import time
+
+    gw = _load("gateway", "gateway", tmp_path, monkeypatch)
+    monkeypatch.setattr(sys.modules["common"], "STARTUP_DELAY_S", 0.3)
+    start = time.perf_counter()
+    with TestClient(gw.app) as client:
+        assert time.perf_counter() - start >= 0.3  # lifespan waited before serving
+        assert client.get("/health").status_code == 200

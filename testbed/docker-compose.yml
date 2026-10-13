@@ -17,6 +17,7 @@ x-app: &app
   environment: &app-env
     DATABASE_URL: postgresql://app:app@toxiproxy:5433/app
     ACCESS_LOG_SAMPLE: "0.05"
+    APP_STARTUP_DELAY_S: "15"  # realistic warm-up after a (crash) restart; see common.py
   depends_on: [toxiproxy]
   cpus: 1.0
 
@@ -82,7 +83,7 @@ services:
 
   loadgen:
     <<: *app
-    environment: { <<: *app-env, SERVICE: loadgen, LOAD_RPS: "20", LATENCY_SLO_MS: "${LS_LATENCY_SLO_MS:-50}" }
+    environment: { <<: *app-env, SERVICE: loadgen, APP_STARTUP_DELAY_S: "0", LOAD_RPS: "20", LATENCY_SLO_MS: "${LS_LATENCY_SLO_MS:-50}" }
     ports: ["127.0.0.1:${LS_PORT_LOADGEN:-8089}:8000"]
     depends_on: [gateway]
     mem_limit: 128m
