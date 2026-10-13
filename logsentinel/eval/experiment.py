@@ -178,6 +178,37 @@ def rule_decisions(features: pd.DataFrame, rules: dict) -> pd.DataFrame:
     return features[["episode_id", "cutoff_min"]].assign(action=acts)
 
 
+RULE_GRID = {
+    "cr_severe_min": [1, 2],
+    "ar_material_min": [1, 2, 3, 5],
+    "ar_trend_slope": [0.1, 0.25, 0.5],
+    "ar_trend_t": [2.0, 3.0, 4.0],
+}
+
+
+def tune_rules(
+    features: pd.DataFrame,
+    val: pd.DataFrame,
+    base: dict,
+    costs: dict,
+    actions: list[str],
+    recall: float,
+) -> tuple[dict, dict]:
+    """Grid search on validation: fewest false alerts subject to harmful recall >= target (ties:
+    higher utility). If no setting reaches the target, the highest-recall setting is used."""
+    import itertools
+
+    keys, best, best_key = list(RULE_GRID), None, None
+    for values in itertools.product(*RULE_GRID.values()):
+        rules = {**base, **dict(zip(keys, values, strict=True))}
+        s = summarize(outcomes(val, rule_decisions(features, rules), costs, actions))
+        ok = s["harmful_recall"] >= recall
+        key = (ok, -s["false_alert_rate_nonharmful"] if ok else s["harmful_recall"], s["utility"])
+        if best_key is None or key > best_key:
+            best, best_key = rules, key
+    return best, {"reached_recall_on_val": bool(best_key[0]), "grid": RULE_GRID}
+
+
 def cost_decisions(probs: pd.DataFrame, keys: pd.DataFrame, policy: dict) -> pd.DataFrame:
     acts = [
         choose_action(dict(zip(LABELS, p, strict=True)), policy)[0]
@@ -307,8 +338,13 @@ def run(
     systems_test["LS_model_cost"] = outcomes(
         test, cost_decisions(probs["test"], keys["test"], policy), costs, actions
     )
-    systems_test["LS_rules"] = outcomes(
+    systems_test["LS_rules_default"] = outcomes(
         test, rule_decisions(keys["test"], policy["rules"]), costs, actions
+    )
+    tuned_rules, tuning = tune_rules(keys["val"], val, policy["rules"], costs, actions, recall)
+    thresholds["LS_rules_tuned"] = {"rules": tuned_rules, **tuning}
+    systems_test["LS_rules_tuned"] = outcomes(
+        test, rule_decisions(keys["test"], tuned_rules), costs, actions
     )
 
     # 3. test metrics with cluster-bootstrap CIs and paired differences vs the strongest baseline
