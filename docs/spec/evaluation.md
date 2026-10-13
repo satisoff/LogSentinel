@@ -72,7 +72,9 @@ systems under each setting. A ranking that flips under plausible costs must be r
 
 ## 5. Uncertainty and statistics
 
-- **Cluster bootstrap over `change_id`**, stratified by scenario, 2,000 resamples, 95% percentile CIs.
+- **Two-stage cluster bootstrap over `change_id`** (v1.1): change_ids drawn with replacement, stratified by
+  scenario (single-change scenarios pooled), then episodes drawn within each change; 2,000 resamples, 95%
+  percentile CIs.
   Replicates of the same change (seeds, workloads) are correlated, so resampling individual
   episodes would understate uncertainty. Episode-level bootstrap CIs are reported alongside, for reference only.
 - **Paired** bootstrap for differences between systems on the same test episodes. McNemar's test for
@@ -109,6 +111,11 @@ grid · cost matrix (above).
 
 ## Changelog
 - v0 (2026-10-12): initial draft. Bootstrap changed to cluster bootstrap over change_id.
+- **v1.1 amendment (2026-10-13, before any main-v1 data was evaluated):** the cluster bootstrap is
+  two-stage (change_ids, then episodes within changes); scenarios with a single change in the evaluated
+  split are pooled into one stratum. Reason: the main split has one test change per scenario, so a
+  per-scenario stratum would always redraw the same cluster and give zero-width intervals (found in the
+  pilot-data integration test).
 - **v1 (2026-10-13): frozen.** CR deadline 10 min, recall target 0.95, alert budget = validation harmful
   prevalence, delay margin (H1) = median detection delay at most 5 min worse than the best baseline, paired
   on the same episodes.

@@ -81,6 +81,21 @@ optional change-conditioned shift prior) -> decision-time features (`chg_`, `dev
 `log_`, `wl_` groups) -> rule-based qualifier -> cost-based action -> evidence summary. Configuration
 lives in `experiments/configs/policy.yaml`. Nothing is tuned or frozen yet.
 
+## Evaluation (M6)
+
+```bash
+PY=.venv/Scripts/python.exe
+$PY -m logsentinel.episodes.cli split --campaign main-v1          # freeze main / loso_* / heldout_* splits
+$PY experiments/evaluate.py --campaign main-v1 --split main         # -> experiments/reports/main-v1-main/
+$PY experiments/evaluate.py --campaign main-v1 --split loso_S5 --bootstrap 500
+```
+
+Protocol (frozen in `docs/spec/evaluation.md` v1.1): fit on train, choose thresholds and the strongest
+baseline on validation, apply once to test. Systems: six baselines (B1–B6; B4/B6 are *inspired by*
+SCWarn/MELODY, with differences documented in `logsentinel/detectors/baselines.py`), LogSentinel rules,
+and the learned qualifier (cost policy, and recall-matched). Reports include two-stage cluster-bootstrap
+CIs, paired differences vs. the strongest baseline, ablations, seed spread, cost sensitivity and calibration.
+
 ## Milestones
 
 See `docs/plan.md`. Summary: M0 bootstrap → M1 specification → M2 testbed → M3 episode builder →

@@ -64,5 +64,36 @@ def summary() -> None:
         typer.echo(f"  rejected {r['episode_id']}: {', '.join(r['reject_reasons'])}")
 
 
+@app.command()
+def split(campaign: str = "main-v1", seed: int = 0) -> None:
+    """Freeze grouped splits for one campaign into data/splits/<campaign>/ (never overwrites)."""
+    from logsentinel.episodes.splits import (
+        SPLIT_DIR,
+        freeze,
+        make_heldout_workload,
+        make_loso,
+        make_main,
+    )
+    from logsentinel.episodes.store import load_manifest
+
+    df = load_manifest()
+    df = df[df.get("campaign", pd.Series("pilot", index=df.index)).fillna("pilot") == campaign]
+    if df.empty:
+        typer.echo(f"no usable episodes for campaign {campaign!r}")
+        raise typer.Exit(1)
+    out = SPLIT_DIR / campaign
+    made = {"main": make_main(df, seed)}
+    made.update({f"loso_{s}": make_loso(df, s, seed) for s in sorted(df["scenario"].unique())})
+    made.update(
+        {
+            f"heldout_{p}": make_heldout_workload(df, p, seed)
+            for p in sorted(df["workload_profile"].unique())
+        }
+    )
+    for name, parts in made.items():
+        path = freeze(name, parts, df, seed, out_dir=out)
+        typer.echo(f"{path.name}: " + ", ".join(f"{k}={len(v)}" for k, v in parts.items()))
+
+
 if __name__ == "__main__":
     app()

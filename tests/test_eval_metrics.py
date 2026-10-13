@@ -100,3 +100,16 @@ def test_cluster_bootstrap_ci_and_paired_difference(episodes):
     assert row.lo <= row.estimate <= row.hi
     diff = res[(res.system == "b") & (res.metric == "diff:utility")].iloc[0]
     assert diff.estimate == 0 and diff.lo == 0 and diff.hi == 0
+
+
+def test_bootstrap_has_spread_when_each_scenario_has_one_change():
+    # one change per scenario (as in the main split's test set), replicated episodes that vary
+    rows = []
+    for s in range(4):
+        for k in range(4):
+            rows.append({"episode_id": f"e{s}{k}", "change_id": f"c{s}", "scenario": f"S{s}",
+                         "x": float((s + k) % 2)})  # fmt: skip
+    o = pd.DataFrame(rows)
+    res = cluster_bootstrap({"a": o}, lambda d: {"mean_x": float(d["x"].mean())}, n=300, seed=0)
+    row = res.iloc[0]
+    assert row.hi - row.lo > 0.1  # non-degenerate interval
