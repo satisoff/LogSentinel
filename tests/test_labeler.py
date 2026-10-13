@@ -163,3 +163,21 @@ def test_crash_with_clean_recovery_is_ta():
     df = _crash_then(make_series(), lambda t: 60.0 + 0 * t)  # back to baseline
     res = label_episode(df, Oracle(), CFG)
     assert (res.label, res.rule) == ("TA", "material_short_lived")
+
+
+def test_peak_near_severity_threshold_without_sustain_is_not_ambiguous():
+    df = make_series()
+    m = window(df, 10, 10.25)  # 15 s outage: 2-min error rate ~6% (near E_crit) but never sustained
+    df.loc[m, ["bad", "errors_5xx"]] = REQ
+    res = label_episode(df, Oracle(), CFG)
+    assert res.label == "TA" and not res.ambiguous
+    assert set(res.evidence["label_under_perturbation"].values()) == {"TA"}
+
+
+def test_material_time_near_p_mat_is_ambiguous():
+    df = make_series()
+    df.loc[window(df, 5, 14.5), "bad"] = int(
+        REQ * 0.1
+    )  # ~10 min material: AR at P_mat, TA at 1.2*P_mat
+    res = label_episode(df, Oracle(), CFG)
+    assert res.ambiguous and "TA" in res.evidence["label_under_perturbation"].values()

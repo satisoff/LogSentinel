@@ -107,9 +107,11 @@ can be analysed separately.
 - `explained`: whether all deviations are covered by declared intended effects.
 - `impact_onset`: first material/severe step. This is the reference for detection delay and lead time.
 - `slo_violation_time`: first step where `b_1h` would exceed 1, i.e. the SLO would be violated at this rate. Used for lead time.
-- `ambiguous`: true if any decisive quantity is within ±20% of its threshold, or a BA/TA episode
-  still shows material impact or unexplained deviation in the final 5 min of H (truncated by the
-  horizon). These episodes are double-reviewed.
+- `ambiguous`: true if the label **changes** when the severity/materiality thresholds (B_crit, E_crit,
+  B_mat, P_mat) are scaled by 0.8 or 1.2, or if a BA/TA episode still shows material impact or
+  unexplained deviation in the final 5 min of H (truncated by the horizon). These episodes are
+  double-reviewed. (Pilot 4 replaced the earlier "a peak lies within ±20% of a threshold" test, which
+  flagged episodes whose label could not change.)
 
 ## 7. Review and disagreement
 
@@ -133,3 +135,4 @@ label, and a sensitivity run uses the automatic label.
 - v0 (2026-10-12): initial draft. TA rule split into short-lived material impact vs. recovered unexpected deviation; horizon-truncation ambiguity added. Multi-window impact states: a short 1-min window for material time and severe persistence (the earlier trailing-only windows made a 15 s outage count as 2 min severe); raw-step impact onset. Deviation oracle made one-sided (higher-is-worse).
 - v0 (2026-10-12, after pilot 1): L_slo 300 → 50 ms; absolute minimum deviations per metric family.
 - v0 (2026-10-12, after pilot 2): rule 2d (material impact with an unresolved unexplained deviation → AR).
+- v0 (2026-10-13, after pilot 4): ambiguity = label instability under ±20% threshold perturbation.

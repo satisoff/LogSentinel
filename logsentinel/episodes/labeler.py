@@ -116,11 +116,19 @@ class LabelResult:
         return asdict(self)
 
 
-def _near(value: float, threshold: float, margin: float) -> bool:
-    return threshold != 0 and abs(value - threshold) <= margin * abs(threshold)
+def _perturbed(cfg: LabelConfig, factor: float) -> LabelConfig:
+    """Same config with the severity/materiality thresholds scaled by `factor`."""
+    c = cfg.model_copy(deep=True)
+    c.impact.b_crit *= factor
+    c.impact.e_crit *= factor
+    c.impact.b_mat *= factor
+    c.rules.p_mat_min *= factor
+    return c
 
 
-def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> LabelResult:
+def label_episode(
+    series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig, check_ambiguity: bool = True
+) -> LabelResult:
     df = series.sort_values("t").reset_index(drop=True)
     step = cfg.windows.step_s
     beta = cfg.slo.budget
@@ -232,20 +240,23 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
     slo_steps = np.flatnonzero(horizon & (np.nan_to_num(burn_1h) >= 1.0))
     slo_violation = float(df["t"].iloc[slo_steps[0]]) if slo_steps.size else None
 
-    m = cfg.ambiguity_margin
     max_burn = float(np.nanmax(np.where(horizon, burn, np.nan)))
     max_err = float(np.nanmax(np.where(horizon, err, np.nan)))
     max_excess = float(np.nanmax(np.where(horizon, excess, np.nan)))
-    ambiguous = any(
-        [
-            _near(max_burn, cfg.impact.b_crit, m),
-            _near(max_err, cfg.impact.e_crit, m),
-            _near(max_excess, cfg.impact.b_mat, m),
-            material_steps > 0 and _near(material_min, r.p_mat_min, m),
-            label in ("BA", "TA")
-            and bool(((material | unexplained) & tail).any()),  # truncated by H
-        ]
-    )
+    # Ambiguous = the label is not robust: it changes when the severity/materiality thresholds
+    # move by +-ambiguity_margin, or impact/deviation is still ongoing where H cuts it off.
+    # (Pilot 4: "a peak near a threshold" flagged episodes whose label could not change, e.g. a
+    # 2-min error rate near E_crit without any sustained severe period.)
+    perturbed: dict[str, str] = {}
+    if check_ambiguity:
+        m = cfg.ambiguity_margin
+        for name, factor in (
+            (f"thresholds_-{100 * m:.0f}%", 1 - m),
+            (f"thresholds_+{100 * m:.0f}%", 1 + m),
+        ):
+            perturbed[name] = label_episode(series, oracle, _perturbed(cfg, factor), False).label
+    truncated = label in ("BA", "TA") and bool(((material | unexplained) & tail).any())
+    ambiguous = truncated or any(v != label for v in perturbed.values())
 
     evidence = {
         "config_version": cfg.version,
@@ -261,6 +272,8 @@ def label_episode(series: pd.DataFrame, oracle: Oracle, cfg: LabelConfig) -> Lab
             for a, b in intervals
         ],
         "unexplained_deviation_min": float(unexplained.sum() * step / 60),
+        "label_under_perturbation": perturbed,
+        "truncated_by_horizon": truncated,
         "explained_deviation_min": float(explained_dev.sum() * step / 60),
         "metrics": per_metric,
     }
