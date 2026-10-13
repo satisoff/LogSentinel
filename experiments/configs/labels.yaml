@@ -1,12 +1,12 @@
 # Ground-truth labeling parameters. Spec: docs/spec/labels.md
-# STATUS: DRAFT (v0). Values marked "pilot" are set from pilot runs, then frozen before training.
-version: v0-draft
-frozen: false
+# STATUS: FROZEN v1 (2026-10-13). Calibrated in pilots 1-4; see docs/pilots/.
+version: v1
+frozen: true   # 2026-10-13 after pilots 1-4 (docs/pilots). Changes only via a logged amendment.
 
 windows:
   step_s: 15
-  t_pre_min: 30        # pilot
-  t_horizon_min: 30    # pilot; extended per scenario for delayed onset (S6)
+  t_pre_min: 30
+  t_horizon_min: 30    # extended per scenario for delayed onset (S6: 45)
 
 slo:
   latency_slo_ms: 50   # pilot 1 (GitHub runners, 2026-10-12): healthy p95 9-18 ms, p99 <= 25 ms.
@@ -18,9 +18,9 @@ impact:
   burn_window_min: 5
   b_crit: 14.4         # Google SRE workbook fast-burn convention
   err_window_min: 2
-  e_crit: 0.05         # pilot
+  e_crit: 0.05
   d_crit_min: 2        # severe must persist this long
-  b_mat: 2.0           # pilot: excess burn rate for "material"
+  b_mat: 2.0           # excess burn rate for "material"
   merge_gap_min: 1     # material intervals separated by < this are merged
 
 rules:

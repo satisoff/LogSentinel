@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from datetime import UTC, datetime
@@ -137,6 +138,7 @@ def run_episode(plan: EpisodePlan, warmup_min: float = 3.0, out_root: Path = RAW
         "window": {"start": start, "end": end, "t0": t0},
         "warmup_min": warmup_min,
         "stack": tb.STACK,
+        "campaign": os.environ.get("LS_CAMPAIGN", "dev"),  # e.g. main-v1; splits use one campaign
         "latency_slo_ms": tb.latency_slo_ms(),  # what the load generator counted as "bad"
         # data-quality context: other containers competing for the laptop's CPU/RAM
         "host_context": {"before": host_before, "after": host_after},

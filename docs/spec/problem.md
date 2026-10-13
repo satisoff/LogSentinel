@@ -33,7 +33,8 @@ H1. On held-out changes, a qualifier that jointly uses (i) change-conditioned de
 uncertainty, (ii) temporal persistence/recurrence/recovery and (iii) measured service impact produces
 **fewer false alerts per episode at matched harmful-regression recall** than: context-blind detectors,
 a change-aware detector, a persistence filter, and SCWarn-/MELODY-inspired baselines. It does so
-**without materially worse detection delay** (the delay margin is pre-specified in evaluation, ⟨pilot⟩).
+**without materially worse detection delay**: the median detection delay is at most 5 min (one decision
+step) worse than the best baseline's, paired on the same episodes (evaluation.md v1).
 
 H2. Each of the three elements contributes incrementally (ablations).
 

@@ -1,4 +1,4 @@
-# Evaluation Definitions — v0 (DRAFT; freeze before the test set is touched)
+# Evaluation Definitions — FROZEN v1 (2026-10-13)
 
 These definitions must be frozen, with a dated changelog entry, **before** any system is run on the
 test split.
@@ -21,7 +21,7 @@ threshold is tuned on validation, the same way as for LogSentinel.
 |---|---|
 | **Alert** | Action ∈ {I, E}. O is *not* an alert (non-paging watch), but it is counted and costed separately. |
 | **Harmful episode** | True label ∈ {AR, CR}. |
-| **Detected harmful episode** | Harmful, and an alert is issued at some `t_d ≤ deadline`. Deadline: end of H for AR; `impact_onset + 10 min` for CR ⟨pilot⟩. |
+| **Detected harmful episode** | Harmful, and an alert is issued at some `t_d ≤ deadline`. Deadline: end of H for AR; `impact_onset + 10 min` for CR. |
 | **Missed regression** | Harmful episode that is not detected by its deadline. |
 | **False alert** | Alert on a BA or TA episode. |
 | **Unnecessary action** | Action strictly stronger than the recommended action for the true label. |
@@ -37,9 +37,10 @@ final `t_d` if no alert occurs.
 ## 3. Metrics (priority order)
 
 1. **False alerts per episode at fixed harmful recall.** For each system, choose the alert threshold
-   on validation as the threshold achieving harmful recall ≥ 0.95 ⟨to confirm after pilots⟩, then apply
+   on validation as the threshold achieving harmful recall ≥ 0.95 (0.90 reported as well), then apply
    it unchanged to test. Report test false-alert rate and the achieved test recall.
-2. **False alerts at a fixed alert budget** (e.g. ≤ 0.3 alerts per episode): harmful recall achieved.
+2. **Harmful recall at a fixed alert budget:** budget = harmful prevalence of the validation split (alerts per
+   episode that a perfect system would spend). Report false alerts per episode and harmful recall at that budget.
 3. Harmful-regression precision and recall (AR ∪ CR), and CR recall on its own.
 4. Detection delay (median, IQR) and lead time before SLO violation.
 5. Unnecessary-rollback rate (per episode, and per E action).
@@ -108,3 +109,6 @@ grid · cost matrix (above).
 
 ## Changelog
 - v0 (2026-10-12): initial draft. Bootstrap changed to cluster bootstrap over change_id.
+- **v1 (2026-10-13): frozen.** CR deadline 10 min, recall target 0.95, alert budget = validation harmful
+  prevalence, delay margin (H1) = median detection delay at most 5 min worse than the best baseline, paired
+  on the same episodes.

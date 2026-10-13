@@ -10,6 +10,7 @@ it with a decision-time cutoff (logsentinel.features); only the labeler sees the
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -323,6 +324,10 @@ def build_episode(
         "n_log_lines": len(logs),
         "n_new_templates": int(logs.loc[logs["new_template"], "template_id"].nunique()),
         "label_config": label_cfg.version,
+        "label_config_sha256": hashlib.sha256(
+            (CONFIG_DIR / "labels.yaml").read_bytes()
+        ).hexdigest(),
+        "campaign": scenario.get("campaign", "pilot"),
         "build_config": cfg.version,
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2))

@@ -1,5 +1,6 @@
 # Episode builder / data-quality parameters. Spec: docs/spec/dataset.md sections 4-5.
-version: v0-draft
+version: v1
+frozen: true   # FROZEN v1 (2026-10-13)
 step_s: 15
 standard_windows: {pre_min: 30, horizon_min: [30, 45]}   # other windows -> flag nonstandard_windows
 

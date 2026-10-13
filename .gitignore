@@ -24,3 +24,4 @@ infra/terraform/**/.terraform/
 data/.pilot.running
 data/*.log
 data/actions/
+data/pilots/

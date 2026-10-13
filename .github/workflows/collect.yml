@@ -18,6 +18,9 @@ on:
       shards:
         description: "Parallel runners (max 20 concurrent on GitHub Free)"
         default: "9"
+      campaign:
+        description: "Campaign tag recorded in every run (e.g. pilot, main-v1)"
+        default: "pilot"
 
 permissions:
   contents: read
@@ -49,6 +52,7 @@ jobs:
       SEEDS: ${{ inputs.seeds }}
       SHARDS: ${{ inputs.shards }}
       SHARD: ${{ matrix.shard }}
+      LS_CAMPAIGN: ${{ inputs.campaign }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -77,7 +81,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: raw-shard-${{ matrix.shard }}
+          name: raw-${{ inputs.campaign }}-shard-${{ matrix.shard }}
           path: |
             data/raw/run-*
             data/raw/_runners

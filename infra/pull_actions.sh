@@ -9,7 +9,7 @@ gh run view "$RUN_ID" --json status,conclusion,displayTitle -q '"run \(.displayT
 DEST="data/actions/$RUN_ID"
 rm -rf "$DEST" && mkdir -p "$DEST" data/raw/_runners
 gh run download "$RUN_ID" -D "$DEST"
-for art in "$DEST"/raw-shard-*; do
+for art in "$DEST"/raw-*shard-*; do
   [ -d "$art" ] || continue
   for run in "$art"/run-*; do [ -d "$run" ] && cp -r "$run" data/raw/; done
   [ -d "$art/_runners" ] && cp "$art"/_runners/* data/raw/_runners/ 2>/dev/null || true

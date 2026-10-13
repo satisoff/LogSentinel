@@ -1,4 +1,4 @@
-# Dataset Specification — v0 (DRAFT)
+# Dataset Specification — FROZEN v1 (2026-10-13)
 
 ## 1. Storage layout
 
@@ -90,13 +90,17 @@ silently dropped.
   the hash differs.
 - An automated test asserts that no `change_id` appears in more than one partition.
 
-## 7. Planned scale and feasibility
+## 7. Main dataset v1 (campaign `main-v1`)
 
-One episode takes about T_pre + T_H + reset ≈ 30 + 30 + 3 ≈ 63 min. A single local stack produces
-≈ 20 episodes/day running unattended, so 150 episodes ≈ 7–8 days. Mitigations, decided after pilots:
-1. If sensitivity analysis shows shorter windows (e.g. 15/20 min) preserve label stability, use them.
-2. Optional cloud VM running several isolated stacks in parallel (M7).
-Planning target: 100–200 episodes. Pilots (≈10–20 episodes) estimate label balance and variance first.
+- **152 episodes:** S4 seeds 0–23 (S4 is the only TA-producing scenario), all other scenarios seeds 0–15.
+  Expected mix from the pilots: roughly 40% BA, 15% TA, 25% AR, 20% CR (measured, not assumed).
+- **Environment:** GitHub-hosted `ubuntu-24.04` runners (4 vCPU / 16 GB), one isolated stack per runner,
+  workflow `.github/workflows/collect.yml`. Runner CPU models vary and are recorded per shard.
+- **Campaign tag:** each run records `campaign` (workflow input, `main-v1`). Splits and evaluation use only
+  that campaign's episodes.
+- **Pilot data** (pilots 1–4, smoke runs) lives in `data/pilots/` and is never used for training,
+  tuning or evaluation.
+- **Config fingerprint:** each episode stores the SHA-256 of the label config it was labelled with.
 
 ## 8. Reporting
 

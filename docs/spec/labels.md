@@ -1,8 +1,8 @@
-# Label Specification — v0 (DRAFT, not frozen)
+# Label Specification — FROZEN v1 (2026-10-13)
 
-Status: **draft**. Numeric thresholds marked ⟨pilot⟩ are initial values. They are set from pilot runs (M4),
-then frozen in `experiments/configs/labels.yaml` **before** any model is trained on the main dataset.
-Every change after freezing must be recorded in the changelog at the bottom.
+Status: **FROZEN v1 (2026-10-13)**. Thresholds were calibrated in pilots 1–4 (`docs/pilots/`) and are fixed in
+`experiments/configs/labels.yaml` (version v1, `frozen: true`). Any later change is an amendment, recorded in
+the changelog with its reason, and all episodes are relabelled.
 
 ## 1. Unit of analysis
 
@@ -10,9 +10,9 @@ An **episode** `e` = one controlled change `c` applied to service `s` at time `t
 
 | Window | Definition | Initial value |
 |---|---|---|
-| Baseline `W_pre` | `[t0 − T_pre, t0)` | T_pre = 30 min ⟨pilot⟩ |
-| Observation `W_post` | `[t0, t0 + T_post]` | T_post = 30 min ⟨pilot⟩ |
-| Label horizon `H` | `[t0, t0 + T_H]`, T_H ≥ T_post | T_H = 30 min ⟨pilot⟩. Extend for delayed-onset scenarios (memory leak) |
+| Baseline `W_pre` | `[t0 − T_pre, t0)` | T_pre = 30 min |
+| Observation `W_post` | `[t0, t0 + T_post]` | T_post = 30 min |
+| Label horizon `H` | `[t0, t0 + T_H]`, T_H ≥ T_post | T_H = 30 min. Extend for delayed-onset scenarios (memory leak) |
 | Decision times `t_d` | When a system must emit a decision | {2, 5, 10, 15, 20, 30} min after t0 |
 | Resolution | Aligned step for all series | 15 s |
 
@@ -36,7 +36,7 @@ load generator, which acts as the client.
 - `L_slo` = **50 ms** (pilot 1 on GitHub runners: healthy p95 9–18 ms, p99 ≤ 25 ms; see
   `docs/pilots/pilot1.md`). The SLO is environment-specific; episodes collected under a different SLO
   are rejected (`slo_mismatch`).
-- SLO target = 99% good requests ⟨pilot⟩, so the error budget `β` = 0.01.
+- SLO target = 99% good requests, so the error budget `β` = 0.01.
 - `bad_frac(t)` = bad requests / total requests in step `t`.
 - **Burn rate** `b_w(t)` = mean bad fraction over the trailing window `w`, divided by `β`.
   - At burn rate 1 the budget is consumed exactly at the SLO rate.
@@ -52,8 +52,8 @@ so a brief spike is not smeared across the long window.
 
 | State | Condition | Initial thresholds |
 |---|---|---|
-| **severe** | (`b_5m ≥ B_crit` OR 5xx-rate over 2 min ≥ `E_crit`) AND (`b_1m ≥ B_crit` OR 5xx-rate over 1 min ≥ `E_crit`), sustained ≥ `D_crit` | B_crit = 14.4 (Google SRE workbook fast-burn convention), E_crit = 5% ⟨pilot⟩, D_crit = 2 min |
-| **material** | excess short-window burn `b_1m − b̄_pre ≥ B_mat` | B_mat = 2.0 ⟨pilot⟩ |
+| **severe** | (`b_5m ≥ B_crit` OR 5xx-rate over 2 min ≥ `E_crit`) AND (`b_1m ≥ B_crit` OR 5xx-rate over 1 min ≥ `E_crit`), sustained ≥ `D_crit` | B_crit = 14.4 (Google SRE workbook fast-burn convention), E_crit = 5%, D_crit = 2 min |
+| **material** | excess short-window burn `b_1m − b̄_pre ≥ B_mat` | B_mat = 2.0 |
 | **none** | otherwise | — |
 
 Intervals: maximal runs of consecutive material steps; gaps < 1 min are merged.
@@ -78,7 +78,7 @@ memory, DB latency, retry and timeout counts. A step is **deviant** when:
 m(t) − median_pre(m) > max(k_mad · MAD_pre(m), r_min · |median_pre(m)|)
 ```
 The check is one-sided: every oracle metric is higher-is-worse, so an improvement is not a
-regression. k_mad = 4 and r_min = 0.20 ⟨pilot⟩; the deviation must be sustained ≥ 1 min, and **not covered** by a declared
+regression. k_mad = 4 and r_min = 0.20; the deviation must be sustained ≥ 1 min, and **not covered** by a declared
 intended effect (workload changes are declared as intended effects of the workload change).
 
 ## 5. Label rules (applied in order; the first match wins)
@@ -136,3 +136,4 @@ label, and a sensitivity run uses the automatic label.
 - v0 (2026-10-12, after pilot 1): L_slo 300 → 50 ms; absolute minimum deviations per metric family.
 - v0 (2026-10-12, after pilot 2): rule 2d (material impact with an unresolved unexplained deviation → AR).
 - v0 (2026-10-13, after pilot 4): ambiguity = label instability under ±20% threshold perturbation.
+- **v1 (2026-10-13): frozen.**
