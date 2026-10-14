@@ -44,7 +44,7 @@ jobs:
     timeout-minutes: 355
     strategy:
       fail-fast: false
-      max-parallel: 20
+      max-parallel: 64  # main-v1 showed GitHub ran 28 jobs at once; a cap of 20 forced a second wave
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
